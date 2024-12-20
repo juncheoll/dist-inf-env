@@ -17,11 +17,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Clone the vllm project
-WORKDIR /opt
-RUN git clone https://github.com/vllm-project/vllm.git
+WORKDIR /
+RUN git clone https://github.com/vllm-project/vllm.git .
 
 # Set up virtual environment and install vllm
-WORKDIR /opt/vllm
+WORKDIR /vllm
 RUN python3 -m venv myenv && \
     source myenv/bin/activate && \
     pip install --upgrade pip && \
@@ -31,4 +31,4 @@ RUN python3 -m venv myenv && \
 SHELL ["/bin/bash", "-c"]
 
 # Default command
-CMD ["/bin/bash"]
+CMD ["bash", "-c", "source /vllm/myenv/bin/activate && cd /vllm && pip install --editable . && exec bash"]

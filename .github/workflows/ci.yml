@@ -1,0 +1,45 @@
+name: CI/CD for Distributed Inference Nodes
+
+on:
+  push:
+    branches:
+      - main  # main 브랜치에 푸시될 때만 동작
+
+jobs:
+  update-nodes:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node: [ "node1", "node2", "node3" ]  # 여기에 실제 서버의 IP 또는 호스트명 추가
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Update remote node
+      run: |
+        ssh -o StrictHostKeyChecking=no user@${{ matrix.node }} << 'EOF'
+          echo "📢 연결됨: ${{ matrix.node }}"
+
+          # 1️⃣ 실행 중인 Python 프로세스를 종료
+          echo "🛑 실행 중인 Python 프로세스를 종료합니다."
+          docker ps -q --filter "name=my_vllm_container" | xargs -r docker exec {} pkill python
+
+          # 2️⃣ vLLM 코드 디렉터리로 이동 및 업데이트
+          echo "🔄 최신 vLLM 소스코드 가져오기"
+          cd /path/to/your/vllm/repo  # 이 경로는 각 노드에 클론된 리포지토리의 위치로 바꿔야 합니다.
+          git fetch --all
+          git reset --hard origin/main
+
+          # 3️⃣ Docker 컨테이너 재시작 (기존 컨테이너 유지)
+          echo "🚀 Docker 컨테이너 내부에서 Python 프로세스 재시작"
+          docker ps -q --filter "name=my_vllm_container" | xargs -r docker exec {} bash -c "source /myenv/bin/activate && python3 path/to/your/python/script.py"
+
+          echo "✅ 완료: ${{ matrix.node }}"
+        EOF

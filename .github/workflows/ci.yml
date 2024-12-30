@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Deploy to Head
-        uses: appleboy/ssh-action@v0.1.16
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
           port: 9000
@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Deploy to Worker
-        uses: appleboy/ssh-action@v0.1.16
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
           port: ${{ matrix.worker.port }}

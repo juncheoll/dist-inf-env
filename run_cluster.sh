@@ -54,4 +54,4 @@ docker run  -d \
     --gpus all \
     -v "${PATH_TO_HF_HOME}:/root/.cache/huggingface" \
     "${ADDITIONAL_ARGS[@]}" \
-    "${DOCKER_IMAGE}" -c "${RAY_START_CMD}"
+    "${DOCKER_IMAGE}" -c "${RAY_START_CMD} & tail -f /dev/null"

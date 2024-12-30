@@ -44,10 +44,10 @@ cleanup() {
     docker stop node >/dev/null 2>&1 || true
     docker rm node >/dev/null 2>&1 || true
 }
-cleanup()
+cleanup
 
 # Run the docker command with the user specified parameters and additional arguments
-docker run -d \
+docker run  -d \
     --network host \
     --name node \
     --shm-size 10.24g \

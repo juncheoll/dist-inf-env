@@ -18,7 +18,7 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.WORKER_KEY }}
           script: |
-            cd /home/ubuntu/myrepo
+            cd /home/sslab/dist-inf-env
             git pull origin main
             sudo bash run_cluster.sh vllm/vllm-openai ${{ secrets.HEAD_HOST }} --head ~/.cache/huggingface
 
@@ -44,6 +44,6 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.WORKER_KEY }}  # secrets에 맞춰 가져오는 방식
           script: |
-            cd /home/ubuntu/myrepo
+            cd /home/sslab/dist-inf-env
             git pull origin main
             sudo bash run_cluster.sh vllm/vllm-openai ${{ secrets.HEAD_HOST }} --worker ~/.cache/huggingface

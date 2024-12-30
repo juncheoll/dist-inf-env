@@ -20,7 +20,7 @@ jobs:
           script: |
             cd /home/sslab/dist-inf-env
             git pull origin main
-            sudo bash run_cluster.sh vllm/vllm-openai ${{ secrets.HEAD_HOST }} --head ~/.cache/huggingface
+            sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --head ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0
 
   deploy-workers:
     runs-on: ubuntu-latest
@@ -46,4 +46,4 @@ jobs:
           script: |
             cd /home/sslab/dist-inf-env
             git pull origin main
-            sudo bash run_cluster.sh vllm/vllm-openai ${{ secrets.HEAD_HOST }} --worker ~/.cache/huggingface
+            sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --worker ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0

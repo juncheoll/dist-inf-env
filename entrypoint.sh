@@ -23,7 +23,7 @@ else
 fi
 
 # 4) 추가적으로, 컨테이너 내에서 실행할 명령이 있다면 여기서 실행
-python -c "import vllm; print('VLLM imported!')"
+python3 -c "import vllm; print('VLLM imported!')"
 
 echo "[entrypoint.sh] Done copying. Now executing CMD..."
 exec "$@"

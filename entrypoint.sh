@@ -7,13 +7,7 @@ echo "[entrypoint.sh] Container started..."
 LOCATION=$(pip show vllm | grep '^Location:' | awk '{print $2}')
 echo "[entrypoint.sh] vllm is installed at: $LOCATION"
 
-# 2) 만약 기존 site-packages 안에 vllm 폴더가 이미 있다면 제거 (선택적)
-if [ -d "$LOCATION/vllm" ]; then
-    echo "[entrypoint.sh] Removing existing $LOCATION/vllm ..."
-    rm -rf "$LOCATION/vllm"
-fi
-
-# 3) 수정된 /vllm 폴더에서 변경 사항을 dist-packages/vllm에 덮어쓰기
+# 2) 수정된 /vllm 폴더에서 변경 사항을 dist-packages/vllm에 덮어쓰기
 if [ -d "/vllm" ]; then
     echo "[entrypoint.sh] Syncing changes from /vllm to $LOCATION/vllm..."
     
@@ -32,7 +26,7 @@ else
 fi
 
 
-# 4) 추가적으로, 컨테이너 내에서 실행할 명령이 있다면 여기서 실행
+# 3) 추가적으로, 컨테이너 내에서 실행할 명령이 있다면 여기서 실행
 python3 -c "import vllm; print('VLLM imported!')"
 
 echo "[entrypoint.sh] Done copying. Now executing CMD..."

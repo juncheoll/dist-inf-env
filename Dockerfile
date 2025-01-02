@@ -9,6 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Install system dependencies
 RUN apt-get update && \
     apt-get install -y  \
+        git \
         python3 \
         python3-pip \
     && apt-get clean && \
@@ -17,7 +18,7 @@ RUN apt-get update && \
 # Clone the vllm project
 WORKDIR /
 
-RUN pip install vllm==0.6.5 --break-system-packages
+RUN pip install vllm==0.6.6 --break-system-packages
 
 COPY . .
 RUN chmod +x /entrypoint.sh

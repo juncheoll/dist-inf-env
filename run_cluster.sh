@@ -48,6 +48,7 @@ cleanup
 
 # Run the docker command with the user specified parameters and additional arguments
 docker run  -d \
+    --rm \
     --network host \
     --name node \
     --shm-size 10.24g \

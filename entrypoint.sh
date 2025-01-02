@@ -17,7 +17,7 @@ fi
 #    이를 site-packages 로 복사
 if [ -d "/vllm" ]; then
     echo "[entrypoint.sh] Copying /vllm -> $LOCATION/vllm"
-    cp -R /vllm/vllm "$LOCATION/"
+    cp -R /vllm "$LOCATION/"
 else
     echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to copy."
 fi

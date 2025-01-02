@@ -13,11 +13,11 @@ if [ -d "$LOCATION/vllm" ]; then
     rm -rf "$LOCATION/vllm"
 fi
 
-# 3) 호스트에서 마운트된 /vllm(또는 다른 경로)에 수정된 코드가 있다고 가정
+# 3) 호스트에서 마운트된 /vllm(또는 다른 경로)에 소스코드로 precompiled build
 #    이를 site-packages 로 복사
 if [ -d "/vllm" ]; then
-    echo "[entrypoint.sh] Copying /vllm -> $LOCATION/vllm"
-    cp -R /vllm/vllm "$LOCATION/"
+    echo "[entrypoint.sh] Precompiled Building /vllm"
+    VLLM_USE_PRECOMPILED=1 pip install -e . --break-system-packages
 else
     echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to copy."
 fi

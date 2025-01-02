@@ -17,7 +17,8 @@ fi
 #    이를 site-packages 로 복사
 if [ -d "/vllm" ]; then
     echo "[entrypoint.sh] Precompiled Building /vllm"
-    VLLM_USE_PRECOMPILED=1 pip install -e . --break-system-packages
+    export SETUPTOOLS_SCM_PRETEND_VERSION=0.6.6
+    VLLM_USE_PRECOMPILED=1 pip install -e /vllm --break-system-packages
 else
     echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to copy."
 fi

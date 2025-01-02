@@ -141,7 +141,7 @@ class EngineArgs:
     tokenizer_pool_extra_config: Optional[Dict[str, Any]] = None
     limit_mm_per_prompt: Optional[Mapping[str, int]] = None
     mm_processor_kwargs: Optional[Dict[str, Any]] = None
-    disable_mm_preprocessor_cache: bool = False
+    mm_cache_preprocessor: bool = False
     enable_lora: bool = False
     enable_lora_bias: bool = False
     max_loras: int = 1
@@ -197,8 +197,6 @@ class EngineArgs:
 
     kv_transfer_config: Optional[KVTransferConfig] = None
 
-    generation_config: Optional[str] = None
-
     def __post_init__(self):
         if not self.tokenizer:
             self.tokenizer = self.model
@@ -207,7 +205,6 @@ class EngineArgs:
         # by user.
         if self.enable_prefix_caching is None:
             self.enable_prefix_caching = bool(envs.VLLM_USE_V1)
-
         # Override max_num_seqs if it's not set by user.
         if self.max_num_seqs is None:
             self.max_num_seqs = 256 if not envs.VLLM_USE_V1 else 1024
@@ -426,12 +423,10 @@ class EngineArgs:
         parser.add_argument('--block-size',
                             type=int,
                             default=EngineArgs.block_size,
-                            choices=[8, 16, 32, 64, 128],
+                            choices=[8, 16, 32],
                             help='Token block size for contiguous chunks of '
                             'tokens. This is ignored on neuron devices and '
-                            'set to max-model-len. On CUDA devices, '
-                            'only block sizes up to 32 are supported. '
-                            'On HPU devices, block size defaults to 128.')
+                            'set to max-model-len')
 
         parser.add_argument(
             "--enable-prefix-caching",
@@ -608,10 +603,11 @@ class EngineArgs:
             help=('Overrides for the multimodal input mapping/processing, '
                   'e.g., image processor. For example: {"num_crops": 4}.'))
         parser.add_argument(
-            '--disable-mm-preprocessor-cache',
+            '--mm-cache-preprocessor',
             action='store_true',
-            help='If true, then disables caching of the multi-modal '
-            'preprocessor/mapper. (not recommended)')
+            help='If true, then enables caching of the multi-modal '
+            'preprocessor/mapper. Otherwise, the mapper executes each time'
+            ', and for better performance consider enabling frontend process.')
 
         # LoRA related configs
         parser.add_argument('--enable-lora',
@@ -944,16 +940,6 @@ class EngineArgs:
             default="auto",
             help='The worker class to use for distributed execution.')
 
-        parser.add_argument(
-            "--generation-config",
-            type=nullable_str,
-            default=None,
-            help="The folder path to the generation config. "
-            "Defaults to None, will use the default generation config in vLLM. "
-            "If set to 'auto', the generation config will be automatically "
-            "loaded from model. If set to a folder path, the generation config "
-            "will be loaded from the specified folder path.")
-
         return parser
 
     @classmethod
@@ -994,11 +980,10 @@ class EngineArgs:
             use_async_output_proc=not self.disable_async_output_proc,
             config_format=self.config_format,
             mm_processor_kwargs=self.mm_processor_kwargs,
-            disable_mm_preprocessor_cache=self.disable_mm_preprocessor_cache,
+            mm_cache_preprocessor=self.mm_cache_preprocessor,
             override_neuron_config=self.override_neuron_config,
             override_pooler_config=self.override_pooler_config,
-            logits_processor_pattern=self.logits_processor_pattern,
-            generation_config=self.generation_config)
+            logits_processor_pattern=self.logits_processor_pattern)
 
     def create_load_config(self) -> LoadConfig:
         return LoadConfig(
@@ -1041,11 +1026,11 @@ class EngineArgs:
         device_config = DeviceConfig(device=self.device)
         model_config = self.create_model_config()
 
-        if (model_config.is_multimodal_model and not envs.VLLM_USE_V1
-                and self.enable_prefix_caching):
-            logger.warning("--enable-prefix-caching is currently not "
-                           "supported for multimodal models in v0 and "
-                           "has been disabled.")
+        if model_config.is_multimodal_model:
+            if self.enable_prefix_caching:
+                logger.warning(
+                    "--enable-prefix-caching is currently not "
+                    "supported for multimodal models and has been disabled.")
             self.enable_prefix_caching = False
 
         cache_config = CacheConfig(
@@ -1264,14 +1249,11 @@ class EngineArgs:
         # When no user override, set the default values based on the usage
         # context.
         # TODO(woosuk): Tune the default values for different hardware.
-        default_max_num_batched_tokens = {
-            UsageContext.LLM_CLASS: 8192,
-            UsageContext.OPENAI_API_SERVER: 2048,
-        }
-        if (self.max_num_batched_tokens is None
-                and usage_context in default_max_num_batched_tokens):
-            self.max_num_batched_tokens = default_max_num_batched_tokens[
-                usage_context]
+        if self.max_num_batched_tokens is None:
+            if usage_context == UsageContext.LLM_CLASS:
+                self.max_num_batched_tokens = 8192
+            elif usage_context == UsageContext.OPENAI_API_SERVER:
+                self.max_num_batched_tokens = 2048
             logger.warning(
                 "Setting max_num_batched_tokens to %d for %s usage context.",
                 self.max_num_batched_tokens, usage_context.value)
@@ -1281,6 +1263,9 @@ class EngineArgs:
         Override the EngineConfig's configs based on the usage context for V1.
         """
         assert envs.VLLM_USE_V1, "V1 is not enabled"
+        if engine_config.model_config.is_multimodal_model:
+            # TODO (ywang96): Enable APC by default when VLM supports it.
+            assert not engine_config.cache_config.enable_prefix_caching
 
 
 @dataclass

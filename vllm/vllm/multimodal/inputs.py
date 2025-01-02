@@ -15,32 +15,31 @@ _T = TypeVar("_T")
 # yapf: disable
 ImageItem: TypeAlias = Union[Image, np.ndarray, torch.Tensor]
 """
-A :class:`transformers.image_utils.ImageInput` representing a single image
-item, which can be passed to a HuggingFace :code:`ImageProcessor`.
+A :class:`transformers.image_utils.ImageInput` representing a single image,
+which can be passed to a HuggingFace :code:`ImageProcessor`.
 """
 
 VideoItem: TypeAlias = Union[
-    list[Image],
+    List[Image],
     np.ndarray,
     torch.Tensor,
-    list[np.ndarray],
-    list[torch.Tensor],
+    List[np.ndarray],
+    List[torch.Tensor],
 ]
 """
-A :class:`transformers.image_utils.VideoInput` representing a single video
-item, which can be passed to a HuggingFace :code:`VideoProcessor`.
+
+A :class:`transformers.image_utils.VideoInput` representing a single video,
+which can be passed to a HuggingFace :code:`VideoProcessor`.
 """
 
 AudioItem: TypeAlias = Union[
     np.ndarray,
-    list[float],
-    # `(audio, sampling_rate)`: If the audio's sampling rate is different
-    # from that expected by the model, we need to resample it.
-    tuple[np.ndarray, float],
+    List[float],
+    Tuple[np.ndarray, float],  # DEPRECATED: Use mm_processor_kwargs instead
 ]
 """
-Represents a single audio
-item, which can be passed to a HuggingFace :code:`AudioProcessor`.
+Represents a single audio that can be inputted to a HuggingFace
+:code:`AudioProcessor`.
 """
 # yapf: enable
 
@@ -215,9 +214,6 @@ class MultiModalInputsV2(TypedDict):
 
     mm_kwargs: MultiModalKwargs
     """Keyword arguments to be directly passed to the model after batching."""
-
-    mm_hashes: NotRequired[List[str]]
-    """The hashes of the multi-modal data."""
 
     mm_placeholders: MultiModalPlaceholderDict
     """

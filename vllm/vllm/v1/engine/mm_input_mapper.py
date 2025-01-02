@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import PIL
 from blake3 import blake3
@@ -8,7 +8,7 @@ from vllm.inputs import PromptType
 from vllm.logger import init_logger
 from vllm.multimodal import (MULTIMODAL_REGISTRY, MultiModalDataDict,
                              MultiModalKwargs, MultiModalRegistry)
-from vllm.utils import LRUCache
+from vllm.v1.utils import LRUDictCache
 
 logger = init_logger(__name__)
 
@@ -42,9 +42,7 @@ class MMInputMapperClient:
             model_config)
         self.mm_registry.init_mm_limits_per_prompt(model_config)
 
-        # Init cache
-        self.use_cache = not model_config.disable_mm_preprocessor_cache
-        self.mm_cache = LRUCache[str, MultiModalKwargs](MM_CACHE_SIZE)
+        self.mm_cache = LRUDictCache[str, MultiModalKwargs](MM_CACHE_SIZE)
 
         # DEBUG: Set to None to disable
         self.mm_debug_cache_hit_ratio_steps = None
@@ -63,7 +61,7 @@ class MMInputMapperClient:
         mm_hashes: Optional[List[str]],
         mm_processor_kwargs: Optional[Dict[str, Any]],
         precomputed_mm_inputs: Optional[List[MultiModalKwargs]],
-    ) -> List[MultiModalKwargs]:
+    ) -> Tuple[List[MultiModalKwargs], Optional[List[str]]]:
         if precomputed_mm_inputs is None:
             image_inputs = mm_data["image"]
             if not isinstance(image_inputs, list):
@@ -72,21 +70,26 @@ class MMInputMapperClient:
         else:
             num_inputs = len(precomputed_mm_inputs)
 
-        # Sanity
-        if self.use_cache:
+        # Check if hash is enabled
+        use_hash = mm_hashes is not None
+        if use_hash:
             assert mm_hashes is not None
-            assert num_inputs == len(mm_hashes)
+            assert num_inputs == len(
+                mm_hashes), "num_inputs = {} len(mm_hashes) = {}".format(
+                    num_inputs, len(mm_hashes))
 
         # Process each image input separately, so that later we can schedule
         # them in a fine-grained manner.
         # Apply caching (if enabled) and reuse precomputed inputs (if provided)
+        ret_hashes: Optional[List[str]] = [] if use_hash else None
         ret_inputs: List[MultiModalKwargs] = []
         for input_id in range(num_inputs):
             if self.mm_debug_cache_hit_ratio_steps is not None:
                 self.cache_hit_ratio(self.mm_debug_cache_hit_ratio_steps)
 
+            mm_hash = None
             mm_input = None
-            if self.use_cache:
+            if use_hash:
                 assert mm_hashes is not None
                 mm_hash = mm_hashes[input_id]
                 mm_input = self.mm_cache.get(mm_hash)
@@ -103,7 +106,7 @@ class MMInputMapperClient:
                         mm_processor_kwargs=mm_processor_kwargs,
                     )
 
-                if self.use_cache:
+                if use_hash:
                     # Add to cache
                     assert mm_hash is not None
                     self.mm_cache.put(mm_hash, mm_input)
@@ -111,16 +114,19 @@ class MMInputMapperClient:
                 self.mm_cache_hits += 1
                 mm_input = None  # Avoids sending mm_input to Server
 
+            if use_hash:
+                assert mm_hash is not None
+                assert ret_hashes is not None
+                ret_hashes.append(mm_hash)
             ret_inputs.append(mm_input)
 
-        return ret_inputs
+        return ret_inputs, ret_hashes
 
 
 class MMInputMapperServer:
 
-    def __init__(self, model_config):
-        self.use_cache = not model_config.disable_mm_preprocessor_cache
-        self.mm_cache = LRUCache[str, MultiModalKwargs](MM_CACHE_SIZE)
+    def __init__(self, ):
+        self.mm_cache = LRUDictCache[str, MultiModalKwargs](MM_CACHE_SIZE)
 
     def process_inputs(
         self,
@@ -128,9 +134,6 @@ class MMInputMapperServer:
         mm_hashes: List[str],
     ) -> List[MultiModalKwargs]:
         assert len(mm_inputs) == len(mm_hashes)
-
-        if not self.use_cache:
-            return mm_inputs
 
         full_mm_inputs = []
         for mm_input, mm_hash in zip(mm_inputs, mm_hashes):
@@ -151,41 +154,12 @@ class MMHasher:
     def __init__(self):
         pass
 
-    def hash_dummy_mm_data(
-            self,
-            mm_data: Optional[MultiModalDataDict]) -> Optional[List[str]]:
-        """Hash user-defined dummy multimodal data used for profiling."""
-
-        if mm_data is None:
-            return None
-
-        image_inputs = mm_data['image']
-
-        # This is a temporary workaround for models (e.g, Molmo) that
-        # process multimodal data in the input processor (therefore
-        # image_inputs is MultiModalKwargs instead of raw input format).
-        # `raw_mm_data` with the original input format is expected
-        # in this case.
-        if isinstance(image_inputs, dict):
-            assert "raw_mm_data" in image_inputs and isinstance(
-                image_inputs["raw_mm_data"], PIL.Image.Image)
-            image_inputs = image_inputs.pop("raw_mm_data")
-
-        return self.hash_images(image_inputs)
-
-    def hash_prompt_mm_data(self, prompt: PromptType) -> Optional[List[str]]:
-        """Hash multimodal data in the user input prompt if they exist."""
-
+    def hash(self, prompt: PromptType) -> Optional[List[str]]:
         if "multi_modal_data" not in prompt:
             return None
 
         mm_data = prompt["multi_modal_data"]
         image_inputs = mm_data["image"]
-
-        return self.hash_images(image_inputs)
-
-    def hash_images(self, image_inputs) -> Optional[List[str]]:
-        """Hash PIL image objects to strings."""
         if not isinstance(image_inputs, list):
             image_inputs = [image_inputs]
         assert len(image_inputs) > 0

@@ -18,7 +18,7 @@ RUN apt-get update && \
 # Clone the vllm project
 WORKDIR /
 
-RUN pip install vllm --break-system-packages
+RUN pip install vllm=0.6.5 --break-system-packages
 
 COPY . .
 RUN chmod +x /entrypoint.sh

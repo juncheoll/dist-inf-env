@@ -47,7 +47,7 @@ cleanup() {
 cleanup
 
 # Run the docker command with the user specified parameters and additional arguments
-docker run  -d --tty \
+docker run  -d \
     --rm \
     --network host \
     --name node \

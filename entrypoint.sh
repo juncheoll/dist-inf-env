@@ -13,15 +13,24 @@ if [ -d "$LOCATION/vllm" ]; then
     rm -rf "$LOCATION/vllm"
 fi
 
-# 3) 호스트에서 마운트된 /vllm(또는 다른 경로)에 소스코드로 precompiled build
-#    이를 site-packages 로 복사
+# 3) 수정된 /vllm 폴더에서 변경 사항을 dist-packages/vllm에 덮어쓰기
 if [ -d "/vllm" ]; then
-    echo "[entrypoint.sh] Precompiled Building /vllm"
-    export SETUPTOOLS_SCM_PRETEND_VERSION=0.6.6
-    VLLM_USE_PRECOMPILED=1 pip install -e /vllm --break-system-packages
+    echo "[entrypoint.sh] Syncing changes from /vllm to $LOCATION/vllm..."
+    
+    # dist-packages 경로가 없으면 경고 출력 후 종료
+    if [ ! -d "$LOCATION/vllm" ]; then
+        echo "[entrypoint.sh] ERROR: $LOCATION/vllm does not exist. Cannot sync changes."
+        exit 1
+    fi
+
+    # rsync를 사용하여 /vllm 내용을 $LOCATION/vllm에 덮어쓰기
+    rsync -av --exclude='*.pyc' --exclude='__pycache__' /vllm/vllm "$LOCATION/vllm/"
+
+    echo "[entrypoint.sh] Sync completed: /vllm -> $LOCATION/vllm"
 else
-    echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to copy."
+    echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to sync."
 fi
+
 
 # 4) 추가적으로, 컨테이너 내에서 실행할 명령이 있다면 여기서 실행
 python3 -c "import vllm; print('VLLM imported!')"

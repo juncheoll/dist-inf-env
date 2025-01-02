@@ -1,10 +1,9 @@
 # Dockerfile
-FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=UTC \
-    VLLM_USE_PRECOMPILED=1 \
     PATH="/root/.local/bin:$PATH"
 
 # Install system dependencies
@@ -18,7 +17,7 @@ RUN apt-get update && \
 # Clone the vllm project
 WORKDIR /
 
-RUN pip install vllm=0.6.5 --break-system-packages
+RUN pip install vllm==0.6.5 --break-system-packages
 
 COPY . .
 RUN chmod +x /entrypoint.sh

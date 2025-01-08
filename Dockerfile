@@ -18,10 +18,11 @@ RUN apt-get update && \
 
 # Clone the vllm project
 WORKDIR /
+COPY . .
 
 RUN pip install vllm==0.6.6 --break-system-packages
+RUN pip insatll bitsandbytes>=0.45.0
 
-COPY . .
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

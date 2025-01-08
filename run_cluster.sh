@@ -41,8 +41,14 @@ else
 fi
 
 cleanup() {
-    docker stop node >/dev/null 2>&1 || true
-    docker rm node >/dev/null 2>&1 || true
+    # 컨테이너 중지 및 제거
+    if docker ps -a --filter "name=node" --format '{{.Names}}' | grep -q "^node$"; then
+        echo "[run_cluster.sh] Stopping and removing existing container 'node'..."
+        docker stop node >/dev/null 2>&1 || true
+        docker rm node >/dev/null 2>&1 || true
+    else
+        echo "[run_cluster.sh] No existing container named 'node' found. Skipping cleanup."
+    fi
 }
 cleanup
 

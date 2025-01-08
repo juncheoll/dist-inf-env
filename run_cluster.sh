@@ -22,16 +22,6 @@ if [ "${NODE_TYPE}" != "--head" ] && [ "${NODE_TYPE}" != "--worker" ]; then
     exit 1
 fi
 
-IMAGE_ID=$(docker images -q "${DOCKER_IMAGE}")
-if [ -z "$IMAGE_ID" ]; then
-    echo "[run_cluster.sh] Docker image '${DOCKER_IMAGE}' does NOT exist. Building..."
-    # 컨텍스트를 어디서 빌드할지 주의! 
-    # 예: 이 스크립트가 레포지토리 루트에서 실행된다고 가정하여 '.'을 컨텍스트로 사용
-    docker build -t "${DOCKER_IMAGE}" .
-else
-    echo "[run_cluster.sh] Docker image '${DOCKER_IMAGE}' found (ID: $IMAGE_ID). Skip building."
-fi
-
 # Command setup for head or worker node
 RAY_START_CMD="ray start --block"
 if [ "${NODE_TYPE}" == "--head" ]; then
@@ -46,7 +36,7 @@ cleanup() {
         echo "[run_cluster.sh] Stopping and removing existing container 'node'..."
         docker stop node >/dev/null 2>&1 || true
         docker rm node >/dev/null 2>&1 || true
-        
+
         # 컨테이너 완전 종료를 기다리기 위해 잠시 대기
         while docker ps -a --filter "name=node" --format '{{.Names}}' | grep -q "^node$"; do
             echo "[run_cluster.sh] Waiting for container 'node' to be removed..."
@@ -57,6 +47,21 @@ cleanup() {
     fi
 }
 cleanup
+
+docker rmi ${DOCKER_IMAGE}
+setup_images() {
+    IMAGE_ID=$(docker images -q "${DOCKER_IMAGE}")
+    if [ -z "$IMAGE_ID" ]; then
+        echo "[run_cluster.sh] Docker image '${DOCKER_IMAGE}' does NOT exist. Building..."
+        # 컨텍스트를 어디서 빌드할지 주의! 
+        # 예: 이 스크립트가 레포지토리 루트에서 실행된다고 가정하여 '.'을 컨텍스트로 사용
+        docker build -t "${DOCKER_IMAGE}" .
+    else
+        echo "[run_cluster.sh] Docker image '${DOCKER_IMAGE}' found (ID: $IMAGE_ID). Skip building."
+    fi
+}
+setup_images
+
 
 # Run the docker command with the user specified parameters and additional arguments
 docker run  -d \

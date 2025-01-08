@@ -46,6 +46,12 @@ cleanup() {
         echo "[run_cluster.sh] Stopping and removing existing container 'node'..."
         docker stop node >/dev/null 2>&1 || true
         docker rm node >/dev/null 2>&1 || true
+        
+        # 컨테이너 완전 종료를 기다리기 위해 잠시 대기
+        while docker ps -a --filter "name=node" --format '{{.Names}}' | grep -q "^node$"; do
+            echo "[run_cluster.sh] Waiting for container 'node' to be removed..."
+            sleep 1
+        done
     else
         echo "[run_cluster.sh] No existing container named 'node' found. Skipping cleanup."
     fi

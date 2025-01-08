@@ -21,7 +21,7 @@ WORKDIR /
 COPY . .
 
 RUN pip install vllm==0.6.6 --break-system-packages
-RUN pip insatll bitsandbytes>=0.45.0
+RUN pip install bitsandbytes>=0.45.0
 
 RUN chmod +x /entrypoint.sh
 

@@ -512,7 +512,7 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
     async def execute_model_async(
             self,
             execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
-        logger.info("***my log : run RayGPUExecutorAsync.execute_model_async()")
+        logger.info("***my log : run RayGPUExecutorAsync.execute_model_async()****")
         if not self.use_ray_spmd_worker:
             return await super().execute_model_async(execute_model_req)
 
@@ -532,6 +532,7 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
         assert not self.use_ray_spmd_worker, (
             "driver_worker does not exist for VLLM_USE_RAY_SPMD_WORKER=1")
         if not self.tp_driver_workers:
+            logger.info("****my log : run driver_exec_method('execute_model') from RayGPUExecutorAsync****")
             return await self.driver_exec_method("execute_model",
                                                  execute_model_req)
         if self.pp_locks is None:

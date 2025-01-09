@@ -674,6 +674,7 @@ class GroupCoordinator:
         """Send the input tensor dictionary.
         NOTE: `dst` is the local rank of the source rank.
         """
+        logger.info(f'****my log : run GroupCoordinaotr.send_tensor_dict() from rank={self.rank}')
         # Bypass the function if we are using only 1 GPU.
         if not torch.distributed.is_initialized() or self.world_size == 1:
             return tensor_dict
@@ -729,6 +730,7 @@ class GroupCoordinator:
         """Recv the input tensor dictionary.
         NOTE: `src` is the local rank of the source rank.
         """
+        logger.info(f'****my log : run GroupCoordinaotr.recv_tensor_dict() from rank={self.rank}')
         # Bypass the function if we are using only 1 GPU.
         if not torch.distributed.is_initialized() or self.world_size == 1:
             return None

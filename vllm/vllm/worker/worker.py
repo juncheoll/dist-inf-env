@@ -275,6 +275,7 @@ class Worker(LocalOrDistributedWorkerBase):
         self._warm_up_model()
 
     def _init_cache_engine(self):
+        logger.info("**** my log : run _init_cache_engine() from Worker****")
         assert self.cache_config.num_gpu_blocks is not None
         self.cache_engine = [
             CacheEngine(self.cache_config, self.model_config,
@@ -334,6 +335,7 @@ class Worker(LocalOrDistributedWorkerBase):
     @torch.inference_mode()
     def execute_worker(self, worker_input: WorkerInput) -> None:
         virtual_engine = worker_input.virtual_engine
+        logger.info(f"****my log : run execute_worker() from Worker(virtual_engine={virtual_engine})****")
         # Issue cache operations.
         if (worker_input.blocks_to_swap_in is not None
                 and worker_input.blocks_to_swap_in.numel() > 0):

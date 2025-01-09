@@ -312,6 +312,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         self,
         execute_model_req: Optional[ExecuteModelRequest] = None,
     ) -> Optional[List[SamplerOutput]]:
+        logger.info("****my log : run LocalOrDistributedWorkerBase.execute_model()****")
         """Executes at least one model step on the given sequences, unless no
         sequences are provided."""
         start_time = time.perf_counter()

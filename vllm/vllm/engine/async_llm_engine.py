@@ -281,6 +281,7 @@ class _AsyncLLMEngine(LLMEngine):
         """
         # these are cached outputs from previous iterations. None if on first
         # iteration
+        time.sleep(1)
         cached_outputs = self.cached_scheduler_outputs[virtual_engine]
         seq_group_metadata_list = cached_outputs.seq_group_metadata_list
         scheduler_outputs = cached_outputs.scheduler_outputs

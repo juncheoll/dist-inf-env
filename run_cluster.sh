@@ -48,7 +48,6 @@ cleanup() {
 }
 cleanup
 
-docker rmi ${DOCKER_IMAGE}
 setup_images() {
     IMAGE_ID=$(docker images -q "${DOCKER_IMAGE}")
     if [ -z "$IMAGE_ID" ]; then

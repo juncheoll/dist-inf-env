@@ -48,6 +48,7 @@ cleanup() {
 }
 cleanup
 
+docker rmi vllm-env
 setup_images() {
     IMAGE_ID=$(docker images -q "${DOCKER_IMAGE}")
     if [ -z "$IMAGE_ID" ]; then
@@ -61,7 +62,6 @@ setup_images() {
 }
 setup_images
 
-docker rmi vllm-env
 # Run the docker command with the user specified parameters and additional arguments
 docker run  -d \
     --rm \

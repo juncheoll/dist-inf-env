@@ -18,7 +18,7 @@ if [ -d "/vllm" ]; then
     fi
 
     # rsync를 사용하여 /vllm 내용을 $LOCATION/vllm에 덮어쓰기
-    rsync -av --exclude='*.pyc' --exclude='__pycache__' /vllm/vllm "$LOCATION/vllm/"
+    rsync -av --exclude='*.pyc' --exclude='__pycache__' /vllm/vllm "$LOCATION/"
 
     echo "[entrypoint.sh] Sync completed: /vllm -> $LOCATION/vllm"
 else

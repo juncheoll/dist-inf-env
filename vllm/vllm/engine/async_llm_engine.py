@@ -699,9 +699,11 @@ class AsyncLLMEngine(EngineClient):
             engine_config = engine_args.create_engine_config(usage_context)
 
         executor_class = cls._get_executor_cls(engine_config)
+        logger.info(f"****my log : used executor class by {executor_class}****")
 
         if executor_class.uses_ray:
             initialize_ray_cluster(engine_config.parallel_config)
+            logger.info(f"****my log : success the initialize_ray_cluster****")
 
         # Create the async LLM engine.
         engine = cls(

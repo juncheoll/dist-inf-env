@@ -31,6 +31,7 @@ class RayGPUExecutor(DistributedGPUExecutor):
     uses_ray: bool = True
 
     def _init_executor(self) -> None:
+        logger.info("***my log : run RayGPUExecutor._init_executor()")
         self.forward_dag: Optional[ray.dag.CompiledDAG] = None
         # If the env var is set, it uses the Ray's compiled DAG API
         # which optimizes the control plane overhead.
@@ -511,9 +512,11 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
     async def execute_model_async(
             self,
             execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
+        logger.info("***my log : run RayGPUExecutorAsync.execute_model_async()")
         if not self.use_ray_spmd_worker:
             return await super().execute_model_async(execute_model_req)
 
+        logger.info("****my log : use_ray_spmd_worker****")
         if self.forward_dag is None:
             self.forward_dag = self._compiled_ray_dag(enable_asyncio=True)
 

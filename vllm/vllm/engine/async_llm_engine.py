@@ -288,7 +288,7 @@ class _AsyncLLMEngine(LLMEngine):
         allow_async_output_proc = cached_outputs.allow_async_output_proc
 
         ctx = self.scheduler_contexts[virtual_engine]
-
+    
         # Clear outputs for each new scheduler iteration
         ctx.request_outputs.clear()
 
@@ -326,7 +326,7 @@ class _AsyncLLMEngine(LLMEngine):
         assert scheduler_outputs is not None
 
         if not scheduler_outputs.is_empty():
-
+            logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
             # Check if we have a cached last_output from the previous iteration.
             # For supporting PP this is probably the best way to pass the
             # sampled_token_ids, as a separate broadcast over all the PP stages
@@ -360,6 +360,7 @@ class _AsyncLLMEngine(LLMEngine):
             if self.scheduler_config.is_multi_step:
                 self._update_cached_scheduler_output(virtual_engine, outputs)
         else:
+            logger.info("****my log : scheduler_outputs IS empty at step_async()****")
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             outputs = []

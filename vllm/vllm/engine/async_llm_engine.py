@@ -269,7 +269,7 @@ class _AsyncLLMEngine(LLMEngine):
     async def step_async(
         self, virtual_engine: int
     ) -> List[Union[RequestOutput, PoolingRequestOutput]]:
-        logger.info("***my log : run _AsyncLLMEngine.step_async()")
+        logger.info(f"***my log : run _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")
         """Performs one decoding iteration and returns newly generated results.
         The workers are ran asynchronously if possible.
 
@@ -790,6 +790,7 @@ class AsyncLLMEngine(EngineClient):
         self.background_loop = None
 
     async def engine_step(self, virtual_engine: int) -> bool:
+        logger.info(f"***my log : run AsyncLLMEngine.engine_step()(virtual_engine={virtual_engine})****")
         """Kick the engine to process the waiting requests.
 
         Returns True if there are in-progress requests."""

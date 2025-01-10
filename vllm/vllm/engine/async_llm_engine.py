@@ -269,7 +269,7 @@ class _AsyncLLMEngine(LLMEngine):
     async def step_async(
         self, virtual_engine: int
     ) -> List[Union[RequestOutput, PoolingRequestOutput]]:
-        logger.info(f"***my log : run _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")
+        #logger.info(f"***my log : run _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")
         """Performs one decoding iteration and returns newly generated results.
         The workers are ran asynchronously if possible.
 
@@ -281,7 +281,7 @@ class _AsyncLLMEngine(LLMEngine):
         """
         # these are cached outputs from previous iterations. None if on first
         # iteration
-        time.sleep(1)
+        #time.sleep(1)
         cached_outputs = self.cached_scheduler_outputs[virtual_engine]
         seq_group_metadata_list = cached_outputs.seq_group_metadata_list
         scheduler_outputs = cached_outputs.scheduler_outputs
@@ -326,7 +326,7 @@ class _AsyncLLMEngine(LLMEngine):
         assert scheduler_outputs is not None
 
         if not scheduler_outputs.is_empty():
-            logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
+            #logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
             # Check if we have a cached last_output from the previous iteration.
             # For supporting PP this is probably the best way to pass the
             # sampled_token_ids, as a separate broadcast over all the PP stages
@@ -360,7 +360,7 @@ class _AsyncLLMEngine(LLMEngine):
             if self.scheduler_config.is_multi_step:
                 self._update_cached_scheduler_output(virtual_engine, outputs)
         else:
-            logger.info("****my log : scheduler_outputs IS empty at step_async()****")
+            #logger.info("****my log : scheduler_outputs IS empty at step_async()****")
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             outputs = []
@@ -802,6 +802,7 @@ class AsyncLLMEngine(EngineClient):
         for new_request in new_requests:
             # Add the request into the vLLM engine's waiting queue.
             try:
+                logger.info(f"***my log : add request (virtual_engine={virtual_engine})****")
                 await self.engine.add_request_async(**new_request)
             except ValueError as e:
                 # TODO: use a vLLM specific error for failed validation

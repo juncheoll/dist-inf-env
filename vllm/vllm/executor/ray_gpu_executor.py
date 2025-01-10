@@ -532,7 +532,7 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
         assert not self.use_ray_spmd_worker, (
             "driver_worker does not exist for VLLM_USE_RAY_SPMD_WORKER=1")
         if not self.tp_driver_workers:
-            logger.info("****my log : run driver_exec_method('execute_model') from RayGPUExecutorAsync****")
+            logger.info(f"****my log : run driver_exec_method('execute_model') from RayGPUExecutorAsync(virtual_engine={execute_model_req.virtual_engine})****")
             return await self.driver_exec_method("execute_model",
                                                  execute_model_req)
         if self.pp_locks is None:

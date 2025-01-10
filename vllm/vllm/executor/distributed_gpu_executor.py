@@ -172,7 +172,7 @@ class DistributedGPUExecutorAsync(DistributedGPUExecutor, ExecutorAsyncBase):
     async def execute_model_async(
             self,
             execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
-        logger.info("***my log : run DistributedGPUExecutorAsync.execute_model_async()****")
+        logger.info(f"***my log : run DistributedGPUExecutorAsync.execute_model_async()(virtual_engine={execute_model_req.virtual_engine})****")
         if self.parallel_worker_tasks is None:
             # Start model execution loop running in the parallel workers
             self.parallel_worker_tasks = asyncio.create_task(

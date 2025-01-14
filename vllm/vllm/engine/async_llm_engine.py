@@ -816,8 +816,9 @@ class AsyncLLMEngine(EngineClient):
             await self._engine_abort(aborted_requests)
 
         request_outputs = await self.engine.step_async(virtual_engine)
-        logger.info(f"****my log : complete _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")   
-        logger.info(f"****my log : request_outputs : {request_outputs}****")     
+        #logger.info(f"****my log : complete _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")   
+        if request_outputs:
+            logger.info(f"****my log : request_outputs : {request_outputs}****")     
 
         # Put the outputs into the corresponding streams.
         # If used as a callback, then already invoked inside

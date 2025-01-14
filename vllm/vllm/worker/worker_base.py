@@ -350,7 +350,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             num_steps=num_steps,
             **kwargs,
         )
-
+        time.sleep(0.3)
         model_execute_time = time.perf_counter() - start_time
         if not get_pp_group().is_last_rank:
             #logger.info(f"****my log : not last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")

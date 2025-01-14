@@ -351,6 +351,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             **kwargs,
         )
         model_execute_time = time.perf_counter() - start_time
+        time.sleep(0.1)
         if not get_pp_group().is_last_rank:
             #logger.info(f"****my log : not last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
             # output is IntermediateTensors

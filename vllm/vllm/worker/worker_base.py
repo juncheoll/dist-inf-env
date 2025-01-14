@@ -312,7 +312,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         self,
         execute_model_req: Optional[ExecuteModelRequest] = None,
     ) -> Optional[List[SamplerOutput]]:
-        #logger.info(f"****my log : run LocalOrDistributedWorkerBase.execute_model()(virtual_engine={execute_model_req.virtual_engine})****")
+        logger.info(f"****my log : run LocalOrDistributedWorkerBase.execute_model()(virtual_engine={execute_model_req.virtual_engine})(rank={get_pp_group().rank})****")
         """Executes at least one model step on the given sequences, unless no
         sequences are provided."""
         start_time = time.perf_counter()
@@ -333,7 +333,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         intermediate_tensors = None
         orig_model_execute_time = 0.0
         if not get_pp_group().is_first_rank:
-            logger.info(f"****my log : not first_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
+            #logger.info(f"****my log : not first_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
             intermediate_tensors = IntermediateTensors(
                 get_pp_group().recv_tensor_dict(
                     all_gather_group=get_tp_group()))
@@ -353,7 +353,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
 
         model_execute_time = time.perf_counter() - start_time
         if not get_pp_group().is_last_rank:
-            logger.info(f"****my log : not last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
+            #logger.info(f"****my log : not last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
             # output is IntermediateTensors
             if (self.observability_config is not None
                     and self.observability_config.collect_model_execute_time):
@@ -369,8 +369,6 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 o.model_execute_time = (orig_model_execute_time +
                                         model_execute_time)
 
-        logger.info(f"****my log : is last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})\n  \
-                    output : {output} ****")
         # output is List[SamplerOutput]
         return output
 

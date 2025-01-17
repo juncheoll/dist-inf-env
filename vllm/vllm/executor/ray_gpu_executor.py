@@ -566,6 +566,7 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
         # Only the last PP stage has the final results.
         logger.info(f"****my log : results from asyncio.gather : {results}****")
         import time
+        #time.sleep(0.1)
         return results[-1]
 
     async def _start_worker_execution_loop(self):

@@ -312,7 +312,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         self,
         execute_model_req: Optional[ExecuteModelRequest] = None,
     ) -> Optional[List[SamplerOutput]]:
-        logger.info(f"****my log : run LocalOrDistributedWorkerBase.execute_model()(virtual_engine={execute_model_req.virtual_engine})(rank={get_pp_group().rank})****")
+        logger.info(f"****my log : run LocalOrDistributedWorkerBase.execute_model()(virtual_engine={execute_model_req.virtual_engine if execute_model_req else None})(rank={get_pp_group().rank})****")
         """Executes at least one model step on the given sequences, unless no
         sequences are provided."""
         start_time = time.perf_counter()

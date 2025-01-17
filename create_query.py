@@ -11,7 +11,7 @@ async def send_request(idx: int):
     """Send a single request and return the response time."""
     start_time = time.time()
     try:
-        completion = await client.chat.completions.acreate(
+        completion = await client.chat.completions.create(
             model='google/gemma-2-27b-it',
             messages=[
                 {"role": "user", "content": "If you save $11,000 with an annual interest rate of 2.5% for a 5-year term, what is the final return?"},

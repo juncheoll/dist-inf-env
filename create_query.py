@@ -2,16 +2,17 @@ import asyncio
 import time
 from openai import OpenAI
 
-client = OpenAI(
-    base_url='http://localhost:8000/v1',
-    api_key='token-abc123',
-)
 
 async def send_request(idx: int):
     """Send a single request and return the response time."""
+    client = OpenAI(
+        base_url='http://localhost:8000/v1',
+        api_key='token-abc123',
+    )
+    
     start_time = time.time()
     try:
-        completion = await client.chat.completions.create(
+        completion = client.chat.completions.create(
             model='google/gemma-2-27b-it',
             messages=[
                 {"role": "user", "content": "If you save $11,000 with an annual interest rate of 2.5% for a 5-year term, what is the final return?"},

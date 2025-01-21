@@ -9,7 +9,7 @@ async def send_request(idx: int):
         base_url='http://localhost:8000/v1',
         api_key='token-abc123',
     )
-    
+
     start_time = time.time()
     try:
         completion = client.chat.completions.create(
@@ -27,7 +27,7 @@ async def send_request(idx: int):
 
 async def main(num_requests: int):
     """Send multiple requests concurrently and calculate statistics."""
-    tasks = [send_request(i + 1) for i in range(num_requests)]
+    tasks = [asyncio.create_task(send_request(i + 1)) for i in range(num_requests)]
     
     start_time = time.time()
     results = await asyncio.gather(*tasks)

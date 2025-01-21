@@ -259,12 +259,81 @@ class RequestTracker:
     def has_new_requests(self):
         return not self._new_requests.empty()
 
+import threading
+import time
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 3, pipeline_parallel_size: int = 1):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.start_schedule_times = [0 for i in range(pipeline_parallel_size)]
+        self.elapsed_schedule_times = [0 for i in range(pipeline_parallel_size)]
+        self.avg_schedule_times = [0 for i in range(pipeline_parallel_size)]
+
+        self.start_execute_times = [0 for i in range(pipeline_parallel_size)]
+        self.elapsed_execute_times = [0 for i in range(pipeline_parallel_size)]
+        self.avg_execute_times = [0 for i in range(pipeline_parallel_size)]
+
+        self.start_proc_output_times = [0 for i in range(pipeline_parallel_size)]
+        self.elapsed_proc_output_times = [0 for i in range(pipeline_parallel_size)]
+        self.avg_proc_output_times = [0 for i in range(pipeline_parallel_size)]
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+
+                logger.info(f"avg_elapsed_time logging... \
+                            avg_schedule_time : {self.average(self.avg_schedule_times)} \
+                            avg_execute_time : {self.average(self.avg_execute_times)} \
+                            avg_proc_output_time : {self.average(self.avg_proc_output_times)}")
+            except Exception as e:
+                logger.info(f"*** error! : {e}")
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
+    def average(self, nums):
+        vaild_nums = [num for num in nums if num is not None]
+        return sum(vaild_nums) / len(vaild_nums) if vaild_nums else 0
+
+    def start_log_schedule(self, virtual_engine: int):
+        self.start_schedule_times[virtual_engine] = time.time()
+    
+    def end_log_schedule(self, virtual_engine: int):
+        self.elapsed_schedule_times[virtual_engine] = time.time() - self.start_schedule_times[virtual_engine]
+        
+    def start_log_execute(self, virtual_engine: int):
+        self.start_execute_times[virtual_engine] = time.time()
+    
+    def end_log_execute(self, virtual_engine: int):
+        self.elapsed_execute_times[virtual_engine] = time.time() - self.start_execute_times[virtual_engine]
+
+    def start_log_proc_output(self, virtual_engine: int):
+        self.start_proc_output_times[virtual_engine] = time.time()
+
+    def end_log_proc_output(self, virtual_engine: int):
+        self.elapsed_proc_output_times[virtual_engine] = time.time() - self.start_proc_output_times[virtual_engine]
+
+    def cacul(self, virtual_engine: int):
+        self.avg_schedule_times[virtual_engine] = (self.avg_schedule_times[virtual_engine] + self.elapsed_schedule_times[virtual_engine]) / 2
+        self.avg_execute_times[virtual_engine] = (self.avg_execute_times[virtual_engine] + self.elapsed_execute_times[virtual_engine]) / 2
+        self.avg_proc_output_times[virtual_engine] = (self.avg_proc_output_times[virtual_engine] + self.elapsed_proc_output_times[virtual_engine]) / 2
+
+    def stop(self):
+        self._stop_event.stop()
+        self._thread.join()
 
 class _AsyncLLMEngine(LLMEngine):
     """Extension of LLMEngine to add async methods."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     async def step_async(
         self, virtual_engine: int
@@ -292,6 +361,8 @@ class _AsyncLLMEngine(LLMEngine):
         # Clear outputs for each new scheduler iteration
         ctx.request_outputs.clear()
 
+        self.pLogger.start_log_schedule()
+
         # skip the scheduler if there are any remaining steps in the seq groups.
         # This ensures that the scheduler is only called again when the current
         # batch has completed.
@@ -301,7 +372,7 @@ class _AsyncLLMEngine(LLMEngine):
             (seq_group_metadata_list, scheduler_outputs,
              allow_async_output_proc
              ) = self.scheduler[virtual_engine].schedule()
-
+            
             ctx.seq_group_metadata_list = seq_group_metadata_list
             ctx.scheduler_outputs = scheduler_outputs
 
@@ -324,6 +395,8 @@ class _AsyncLLMEngine(LLMEngine):
 
         assert seq_group_metadata_list is not None
         assert scheduler_outputs is not None
+
+        self.pLogger.end_log_schedule()
 
         if not scheduler_outputs.is_empty():
             #logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
@@ -350,11 +423,11 @@ class _AsyncLLMEngine(LLMEngine):
             if allow_async_output_proc:
                 execute_model_req.async_callback = self.async_callbacks[
                     virtual_engine]
-
+            self.pLogger.start_log_execute()
             # Execute the model.
             outputs = await self.model_executor.execute_model_async(
                 execute_model_req)
-
+            self.pLogger.end_log_execute()
             # we need to do this here so that last step's sampled_token_ids can
             # be passed to the next iteration for PP.
             if self.scheduler_config.is_multi_step:
@@ -364,7 +437,7 @@ class _AsyncLLMEngine(LLMEngine):
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             outputs = []
-
+        self.pLogger.start_log_proc_output()
         # Finish the current step for all the sequence groups.
         if self.scheduler_config.is_multi_step:
             for seq_group in seq_group_metadata_list:
@@ -415,7 +488,7 @@ class _AsyncLLMEngine(LLMEngine):
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             assert len(ctx.output_queue) == 0
-
+        self.pLogger.end_log_proc_output()
         return ctx.request_outputs
 
     async def stop_remote_worker_execution_loop_async(self) -> None:

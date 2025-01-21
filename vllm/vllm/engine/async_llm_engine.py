@@ -287,7 +287,7 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
-
+                self.cacul()
                 logger.info(f"avg_elapsed_time logging... \
                             avg_schedule_time : {self.average(self.avg_schedule_times)} \
                             avg_execute_time : {self.average(self.avg_execute_times)} \
@@ -321,10 +321,11 @@ class PeriodicLogger:
     def end_log_proc_output(self, virtual_engine: int):
         self.elapsed_proc_output_times[virtual_engine] = time.time() - self.start_proc_output_times[virtual_engine]
 
-    def cacul(self, virtual_engine: int):
-        self.avg_schedule_times[virtual_engine] = (self.avg_schedule_times[virtual_engine] + self.elapsed_schedule_times[virtual_engine]) / 2
-        self.avg_execute_times[virtual_engine] = (self.avg_execute_times[virtual_engine] + self.elapsed_execute_times[virtual_engine]) / 2
-        self.avg_proc_output_times[virtual_engine] = (self.avg_proc_output_times[virtual_engine] + self.elapsed_proc_output_times[virtual_engine]) / 2
+    def cacul(self):
+        for i in range(len(self.avg_schedule_times)):
+            self.avg_schedule_times[i] = (self.avg_schedule_times[i] + self.elapsed_schedule_times[i]) / 2
+            self.avg_execute_times[i] = (self.avg_execute_times[i] + self.elapsed_execute_times[i]) / 2
+            self.avg_proc_output_times[i] = (self.avg_proc_output_times[i] + self.elapsed_proc_output_times[i]) / 2
 
     def stop(self):
         self._stop_event.stop()

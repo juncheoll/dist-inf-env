@@ -389,7 +389,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         )
         model_execute_time = time.perf_counter() - start_time
         #logger.info(f"****my log : modl_execute_time per worker (execute_time = {model_execute_time})(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
-        if execute_model_req.virtual_engine:
+        if execute_model_req.virtual_engine is not None:
             self.pLogger.log_execute_time(execute_model_req.virtual_engine, model_execute_time)
 
         if not get_pp_group().is_last_rank:

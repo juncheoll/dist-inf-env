@@ -2,6 +2,7 @@ import asyncio
 import time
 from openai import OpenAI
 from concurrent.futures import ThreadPoolExecutor
+import argparse
 
 def sync_request(idx: int):
     """Send a single request and return the response time."""
@@ -56,8 +57,13 @@ async def main(num_requests: int):
         else:
             print("\nNo successful requests.")
 
+parser = argparse.ArgumentParser(description="Python script with options.")
+parser.add_argument("--num_requests", type=int, help="요청 개수")
+
+args = parser.parse_args()
+
 # Number of requests to send
-NUM_REQUESTS = 50
+NUM_REQUESTS = args.num_requests
 
 # Run the asyncio event loop
 asyncio.run(main(NUM_REQUESTS))

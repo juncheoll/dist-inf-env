@@ -22,6 +22,39 @@ from vllm.worker.model_runner_base import (BroadcastableModelInput,
 logger = init_logger(__name__)
 
 
+import threading
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 3, pipeline_parallel_size: int = 1):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.avg_execute_times_per_step = [0 for i in range(pipeline_parallel_size)]
+
+        self._thread.start()
+
+    def log_execute_time(self, virtual_engine: int, execute_time: float):
+        self.avg_execute_times_per_step[virtual_engine] = \
+                    (self.avg_execute_times_per_step[virtual_engine] + execute_time) / 2
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                virtual_engines = " \\\n".join(
+                    [f"virtual_engine {i} : {time}" for i, time in enumerate(self.avg_execute_times_per_step)]
+                )
+                logger.info(f"with rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
 class WorkerBase(ABC):
     """Worker interface that allows vLLM to cleanly separate implementations for
     different hardware. Also abstracts control plane communication, e.g., to
@@ -44,6 +77,8 @@ class WorkerBase(ABC):
         self.prompt_adapter_config = vllm_config.prompt_adapter_config
         self.observability_config = vllm_config.observability_config
         self.kv_transfer_config = vllm_config.kv_transfer_config
+
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     @abstractmethod
     def init_device(self) -> None:
@@ -353,6 +388,10 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             **kwargs,
         )
         model_execute_time = time.perf_counter() - start_time
+        #logger.info(f"****my log : modl_execute_time per worker (execute_time = {model_execute_time})(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
+        if execute_model_req.virtual_engine:
+            self.pLogger.log_execute_time(execute_model_req.virtual_engine, model_execute_time)
+
         if not get_pp_group().is_last_rank:
             #logger.info(f"****my log : not last_rank from execute_model()(virtual_engine = {execute_model_req.virtual_engine})(rank = {get_pp_group().rank})****")
             # output is IntermediateTensors

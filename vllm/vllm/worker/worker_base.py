@@ -25,18 +25,24 @@ logger = init_logger(__name__)
 import threading
 
 class PeriodicLogger:
-    def __init__(self, interval: float = 3, pipeline_parallel_size: int = 1):
+    def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
         self.interval = interval
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
-        self.avg_execute_times_per_step = [0 for i in range(pipeline_parallel_size)]
+        self.execute_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.min_execute_times = [None for i in range(pipeline_parallel_size)]
+        self.max_execute_times = [0 for i in range(pipeline_parallel_size)]
 
         self._thread.start()
 
     def log_execute_time(self, virtual_engine: int, execute_time: float):
-        self.avg_execute_times_per_step[virtual_engine] = \
-                    (self.avg_execute_times_per_step[virtual_engine] + execute_time) / 2
+        self.execute_times_list[virtual_engine].append(execute_time)
+        if self.min_execute_times[virtual_engine]:
+            self.min_execute_times[virtual_engine] = min(self.min_execute_times[virtual_engine], execute_time)
+        else:
+            self.min_execute_times[virtual_engine] = execute_time
+        self.max_execute_times[virtual_engine] = max(self.max_execute_times[virtual_engine], execute_time)
 
     def _run(self):
         while not self._stop_event.is_set():
@@ -44,7 +50,7 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {time}" for i, time in enumerate(self.avg_execute_times_per_step)]
+                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f} {self.min_execute_times[virtual_engines]} {self.max_execute_times[virtual_engines]}" for i, execute_times in enumerate(self.execute_times_list)]
                 )
                 logger.info(f"with rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 

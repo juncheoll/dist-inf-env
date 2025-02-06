@@ -1810,7 +1810,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             sampling_metadata=model_input.sampling_metadata,
         )
         sampling_time = time.perf_counter() - start_time
-        self.pLogger.log_sampling_time(model_input.input.virtual_engine, sampling_time)
+        self.pLogger.log_sampling_time(model_input.virtual_engine, sampling_time)
 
         #my:: forward_time logging
         model_forward_time = time.perf_counter() - forward_start_time

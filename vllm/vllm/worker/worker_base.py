@@ -400,6 +400,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     model_execute_time + orig_model_execute_time)
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
+            logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
             return [None]
         if (self.observability_config is not None
                 and self.observability_config.collect_model_execute_time

@@ -1771,7 +1771,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if not get_pp_group().is_last_rank:
             #my:: forward_time logging
             model_forward_time = time.perf_counter() - forward_start_time
-            if model_input.input_tokens is not None:
+            if kv_caches[0].numel() == 0:
                 self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
 
             if (self.is_driver_worker
@@ -1796,7 +1796,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
         compute_logits_time = time.perf_counter() - start_time
-        if model_input.input_tokens is not None:
+        if kv_caches[0].numel() == 0:
             self.pLogger.log_compute_logits_time(model_input.virtual_engine, compute_logits_time)
 
         if not self.is_driver_worker:
@@ -1813,7 +1813,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             sampling_metadata=model_input.sampling_metadata,
         )
         sampling_time = time.perf_counter() - start_time
-        if model_input.input_tokens is not None:
+        if kv_caches[0].numel() == 0:
             self.pLogger.log_sampling_time(model_input.virtual_engine, sampling_time)
 
         #my:: forward_time logging

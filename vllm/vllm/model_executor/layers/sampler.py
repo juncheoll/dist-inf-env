@@ -574,7 +574,7 @@ def _random_sample(
     random_samples = random_samples.cpu()
     pLogger.log_2(time.perf_counter() - start_time)
 
-    logger.info(f"************random_samples size : {random_samples.size()}")
+    logger.info(f"************random_samples size : {random_samples.numel() * random_samples.element_size()}")
 
     sample_idx = 0
     results: SampleResultType = []

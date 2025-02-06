@@ -410,6 +410,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                                         model_execute_time)
                 
         logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
+        time.sleep(2)
         # output is List[SamplerOutput]
         return output
 

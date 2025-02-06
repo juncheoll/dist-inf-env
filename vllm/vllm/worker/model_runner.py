@@ -87,11 +87,9 @@ class PeriodicLogger:
         self._thread.start()
 
     def log_forward_time(self, virtual_engine: int, forward_time: float):
-        logger.info("mylog::::::::::::::::::::::::::::::::::::::::::::::::log_forward_time()")
         self.forward_times_list[virtual_engine].append(forward_time)
 
     def log_compute_logits_time(self, virtual_engine: int, compute_logits_time: float):
-        logger.info("mylog::::::::::::::::::::::::::::::::::::::::::::::::log_compute_logits_time()")
         self.compute_logits_times_list[virtual_engine].append(compute_logits_time)
 
     def _run(self):
@@ -1723,6 +1721,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             "finished_requests_ids": model_input.finished_requests_ids,
             "request_ids_to_seq_ids": model_input.request_ids_to_seq_ids,
         } if self.has_inner_state else {}
+
+        #my:: forward start
+        forward_start_time = time.perf_counter()
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time):
             model_forward_start = torch.cuda.Event(enable_timing=True)
@@ -1761,6 +1762,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         # Compute the logits in the last pipeline stage.
         if not get_pp_group().is_last_rank:
+            #my:: forward_time logging
+            model_forward_time = time.perf_counter() - forward_start_time
+            self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
             if (self.is_driver_worker
                     and hidden_or_intermediate_states is not None
                     and isinstance(hidden_or_intermediate_states,
@@ -1770,9 +1774,6 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 model_forward_end.synchronize()
                 model_forward_time = model_forward_start.elapsed_time(
                     model_forward_end)
-                #my:: forward_time logging
-                self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
-
                 orig_model_forward_time = 0.0
                 if intermediate_tensors is not None:
                     orig_model_forward_time = intermediate_tensors.tensors.get(
@@ -1799,15 +1800,15 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
+        #my:: forward_time logging
+        model_forward_time = time.perf_counter() - forward_start_time
+        self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
                 and output is not None):
             model_forward_end.synchronize()
             model_forward_time = model_forward_start.elapsed_time(
                 model_forward_end)
-            #my:: forward_time logging
-            self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
-
             orig_model_forward_time = 0.0
             if intermediate_tensors is not None:
                 orig_model_forward_time = intermediate_tensors.tensors.get(

@@ -73,6 +73,46 @@ TModelInputForGPU = TypeVar('TModelInputForGPU', bound="ModelInputForGPU")
 torch._dynamo.config.cache_size_limit = 128
 torch._dynamo.config.accumulated_cache_size_limit = 128
 
+import threading
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.forward_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.compute_logits_times_list = [[] for i in range(pipeline_parallel_size)]
+
+        self._thread.start()
+
+    def log_forward_time(self, virtual_engine: int, forward_time: float):
+        self.forward_times_list[virtual_engine].append(forward_time)
+
+    def log_compute_logits_time(self, virtual_engine: int, compute_logits_time: float):
+        self.compute_logits_times_list[virtual_engine].append(compute_logits_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                virtual_engines = " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f}" for i, execute_times in enumerate(self.execute_times_list)]
+                )
+                if get_pp_group().is_last_rank:
+                    virtual_engines += " \\\ncompute logits times\\\n" + " \\\n".join(
+                        [f"virtual_engine {i} : {(sum(compute_logits_times)/len(compute_logits_times)):.5f}" for i, compute_logits_times in enumerate(self.compute_logits_times_list)]
+                    )
+                logger.info(f"forward time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
 
 @dataclass(frozen=True)
 class ModelInputForGPU(ModelRunnerInputBase):
@@ -1089,6 +1129,8 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
         self.sampling_metadata_cache: SamplingMetadataCache = \
               SamplingMetadataCache() \
                 if self.parallel_config.pipeline_parallel_size == 1 else None
+        
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     def load_model(self) -> None:
         logger.info("Starting to load model %s...", self.model_config.model)
@@ -1726,6 +1768,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 model_forward_end.synchronize()
                 model_forward_time = model_forward_start.elapsed_time(
                     model_forward_end)
+                #my:: forward_time logging
+                self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
+
                 orig_model_forward_time = 0.0
                 if intermediate_tensors is not None:
                     orig_model_forward_time = intermediate_tensors.tensors.get(
@@ -1734,8 +1779,12 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                     torch.tensor(model_forward_time + orig_model_forward_time))
             return hidden_or_intermediate_states
 
+        #my:: compute_logits_time logging
+        start_time = time.perf_counter()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
+        compute_logits_time = time.perf_counter() - start_time
+        self.pLogger.log_compute_logits_time(model_input.virtual_engine, compute_logits_time)
 
         if not self.is_driver_worker:
             return []
@@ -1754,6 +1803,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             model_forward_end.synchronize()
             model_forward_time = model_forward_start.elapsed_time(
                 model_forward_end)
+            #my:: forward_time logging
+            self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
+            
             orig_model_forward_time = 0.0
             if intermediate_tensors is not None:
                 orig_model_forward_time = intermediate_tensors.tensors.get(

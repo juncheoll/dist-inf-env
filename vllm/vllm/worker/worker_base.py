@@ -31,18 +31,11 @@ class PeriodicLogger:
         self._thread = threading.Thread(target=self._run, daemon=True)
 
         self.execute_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.min_execute_times = [None for i in range(pipeline_parallel_size)]
-        self.max_execute_times = [0 for i in range(pipeline_parallel_size)]
 
         self._thread.start()
 
     def log_execute_time(self, virtual_engine: int, execute_time: float):
         self.execute_times_list[virtual_engine].append(execute_time)
-        if self.min_execute_times[virtual_engine]:
-            self.min_execute_times[virtual_engine] = min(self.min_execute_times[virtual_engine], execute_time)
-        else:
-            self.min_execute_times[virtual_engine] = execute_time
-        self.max_execute_times[virtual_engine] = max(self.max_execute_times[virtual_engine], execute_time)
 
     def _run(self):
         while not self._stop_event.is_set():
@@ -50,9 +43,9 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f} {self.min_execute_times[i]} {self.max_execute_times[i]}" for i, execute_times in enumerate(self.execute_times_list)]
+                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f}" for i, execute_times in enumerate(self.execute_times_list)]
                 )
-                logger.info(f"with rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+                logger.info(f"execute time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 
             except Exception as e:
                 logger.info(f'**** error! : {e}')

@@ -48,6 +48,10 @@ class PeriodicLogger:
         self.sampling_times = []
         self.pythonize_times = []
 
+        self.times1 = []
+        self.times2 = []
+        self.times3 = []
+
         self._thread.start()
 
     def log_softmax_time(self, execute_time: float):
@@ -62,6 +66,15 @@ class PeriodicLogger:
     def log_pythonize_time(self, execute_time: float):
         self.pythonize_times.append(execute_time)
 
+    def log_1(self, execute_time: float):
+        self.times1.append(execute_time)
+
+    def log_2(self, execute_time: float):
+        self.times2.append(execute_time)
+
+    def log_3(self, execute_time: float):
+        self.times3.append(execute_time)
+
     def _run(self):
         while not self._stop_event.is_set():
             start_time = time.time()
@@ -72,12 +85,18 @@ class PeriodicLogger:
                 average_sampling_time = (sum(self.sampling_times)/len(self.sampling_times)) if self.sampling_times else 0.0
                 average_pythonize_time = (sum(self.pythonize_times)/len(self.pythonize_times)) if self.pythonize_times else 0.0
 
+                average_time1 = (sum(self.times1)/len(self.times1)) if self.times1 else 0.0
+                average_time2 = (sum(self.times2)/len(self.times2)) if self.times2 else 0.0
+                average_time3 = (sum(self.times3)/len(self.times3)) if self.times3 else 0.0
 
                 log = (
                     f"softmax_time : {average_softmax_time:.5f} / {len(self.softmax_times)}\n"
                     f"log_softmax_time : {average_log_softmax_time:.5f} / {len(self.log_softmax_times)}\n"
                     f"sampling_time : {average_sampling_time:.5f} / {len(self.sampling_times)}\n"
-                    f"pythonize_time : {average_pythonize_time:.5f} / {len(self.pythonize_times)}"
+                    f"pythonize_time : {average_pythonize_time:.5f} / {len(self.pythonize_times)}\n"
+                    f"time1 : {average_time1:.5f} / {len(self.times1)}\n"
+                    f"time2 : {average_time2:.5f} / {len(self.times2)}\n"
+                    f"time3 : {average_time3:.5f} / {len(self.times3)}"
                 )
 
                 logger.info(f"sampling time... \\\n{log}")
@@ -216,7 +235,7 @@ class SamplerOutput(
             f"sampled_token_ids={sampled_token_ids_repr}, "
             f"spec_decode_worker_metrics={self.spec_decode_worker_metrics})")
 
-
+pLogger = PeriodicLogger()
 class Sampler(nn.Module):
     """Samples the next tokens from the model's outputs.
 
@@ -247,7 +266,6 @@ class Sampler(nn.Module):
         self.include_gpu_probs_tensor = False
         self.should_modify_greedy_probs_inplace = False
 
-        self.pLogger = PeriodicLogger()
 
     def _init_sampling_tensors(
         self,
@@ -343,11 +361,11 @@ class Sampler(nn.Module):
         # Compute the probabilities.
         start_time = time.perf_counter()
         probs = torch.softmax(logits, dim=-1, dtype=torch.float)
-        self.pLogger.log_softmax_time(time.perf_counter() - start_time)
+        pLogger.log_softmax_time(time.perf_counter() - start_time)
         # Compute the log probabilities.
         start_time = time.perf_counter()
         logprobs = torch.log_softmax(logits, dim=-1, dtype=torch.float)
-        self.pLogger.log_log_softmax_time(time.perf_counter() - start_time)
+        pLogger.log_log_softmax_time(time.perf_counter() - start_time)
 
         # Sample the next tokens.
         start_time = time.perf_counter()
@@ -359,7 +377,7 @@ class Sampler(nn.Module):
             include_gpu_probs_tensor=self.include_gpu_probs_tensor,
             modify_greedy_probs=self._should_modify_greedy_probs_inplace,
         )
-        self.pLogger.log_sampling_time(time.perf_counter() - start_time)
+        pLogger.log_sampling_time(time.perf_counter() - start_time)
 
         if self.include_gpu_probs_tensor:
             # Since we will defer sampler result Pythonization,
@@ -382,7 +400,7 @@ class Sampler(nn.Module):
             start_time = time.perf_counter()
             prompt_logprobs, sample_logprobs = get_logprobs(
                 logprobs, sampling_metadata, maybe_deferred_sample_results)
-            self.pLogger.log_pythonize_time(time.perf_counter() - start_time)
+            pLogger.log_pythonize_time(time.perf_counter() - start_time)
 
         return _build_sampler_output(
             maybe_deferred_sample_results,
@@ -729,7 +747,7 @@ def get_pythonized_sample_results(
     Returns:
       Pythonized sampler results
     '''
-
+    start_time = time.perf_counter()
     (
         sample_metadata,
         sampling_metadata,
@@ -745,7 +763,9 @@ def get_pythonized_sample_results(
         sample_result_args.beam_search_logprobs,
         sample_result_args.sample_results_dict,
     )
+    pLogger.log_1(time.perf_counter - start_time)
 
+    start_time = time.perf_counter()
     for sampling_type in SamplingType:
         if sampling_type not in sample_metadata:
             continue
@@ -760,10 +780,16 @@ def get_pythonized_sample_results(
                                                  beam_search_logprobs)
         sample_results_dict.update(zip(seq_group_id, sample_results))
 
-    return [
+    pLogger.log_2(time.perf_counter - start_time)
+
+    start_time = time.perf_counter()
+    result = [
         sample_results_dict.get(i, ([], []))
         for i in range(len(sampling_metadata.seq_groups))
     ]
+    pLogger.log_3(time.perf_counter - start_time)
+
+    return result
 
 
 def _sample_with_torch(

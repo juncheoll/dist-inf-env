@@ -407,7 +407,8 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             for o in output:
                 o.model_execute_time = (orig_model_execute_time +
                                         model_execute_time)
-
+                
+        logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
         # output is List[SamplerOutput]
         return output
 

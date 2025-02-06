@@ -1818,7 +1818,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         #my:: forward_time logging
         model_forward_time = time.perf_counter() - forward_start_time
-        self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
+        if kv_caches[0].numel() != 0:
+            self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
+            
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
                 and output is not None):

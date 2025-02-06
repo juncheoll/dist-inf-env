@@ -570,9 +570,14 @@ def _random_sample(
         seq_group has do_sample=False, tuple contains ([], [])
     """
     # Find the maximum n value of the prompt phase requests.
+    start_time = time.perf_counter()
     random_samples = random_samples.cpu()
+    pLogger.log_2(time.perf_counter() - start_time)
+
     sample_idx = 0
     results: SampleResultType = []
+
+    start_time = time.perf_counter()
     for seq_group in selected_seq_groups:
         if not seq_group.do_sample:
             results.append(([], []))
@@ -594,6 +599,7 @@ def _random_sample(
                                             num_parent_seqs, 0].tolist()
         results.append((next_token_ids, parent_ids))
         sample_idx += num_parent_seqs
+    pLogger.log_3(time.perf_counter() - start_time)
     return results
 
 
@@ -747,7 +753,6 @@ def get_pythonized_sample_results(
     Returns:
       Pythonized sampler results
     '''
-    start_time = time.perf_counter()
     (
         sample_metadata,
         sampling_metadata,
@@ -763,7 +768,6 @@ def get_pythonized_sample_results(
         sample_result_args.beam_search_logprobs,
         sample_result_args.sample_results_dict,
     )
-    pLogger.log_1(time.perf_counter() - start_time)
 
     start_time = time.perf_counter()
     for sampling_type in SamplingType:
@@ -780,14 +784,12 @@ def get_pythonized_sample_results(
                                                  beam_search_logprobs)
         sample_results_dict.update(zip(seq_group_id, sample_results))
 
-    pLogger.log_2(time.perf_counter() - start_time)
+    pLogger.log_1(time.perf_counter() - start_time)
 
-    start_time = time.perf_counter()
     result = [
         sample_results_dict.get(i, ([], []))
         for i in range(len(sampling_metadata.seq_groups))
     ]
-    pLogger.log_3(time.perf_counter() - start_time)
 
     return result
 

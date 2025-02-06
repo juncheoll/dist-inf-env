@@ -763,7 +763,7 @@ def get_pythonized_sample_results(
         sample_result_args.beam_search_logprobs,
         sample_result_args.sample_results_dict,
     )
-    pLogger.log_1(time.perf_counter - start_time)
+    pLogger.log_1(time.perf_counter() - start_time)
 
     start_time = time.perf_counter()
     for sampling_type in SamplingType:
@@ -780,14 +780,14 @@ def get_pythonized_sample_results(
                                                  beam_search_logprobs)
         sample_results_dict.update(zip(seq_group_id, sample_results))
 
-    pLogger.log_2(time.perf_counter - start_time)
+    pLogger.log_2(time.perf_counter() - start_time)
 
     start_time = time.perf_counter()
     result = [
         sample_results_dict.get(i, ([], []))
         for i in range(len(sampling_metadata.seq_groups))
     ]
-    pLogger.log_3(time.perf_counter - start_time)
+    pLogger.log_3(time.perf_counter() - start_time)
 
     return result
 

@@ -31,6 +31,57 @@ if envs.VLLM_USE_FLASHINFER_SAMPLER and find_spec("flashinfer"):
 else:
     flashinfer_top_k_top_p_sampling = None
 
+from vllm.logger import init_logger
+logger = init_logger(__name__)
+
+import time
+import threading
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 10):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.softmax_times = []
+        self.log_softmax_times = []
+        self.sampling_times = []
+        self.pythonize_times = []
+
+        self._thread.start()
+
+    def log_softmax_time(self, execute_time: float):
+        self.softmax_times.append(execute_time)
+
+    def log_log_softmax_time(self, execute_time: float):
+        self.log_softmax_times.append(execute_time)
+
+    def log_sampling_time(self, execute_time: float):
+        self.sampling_times.append(execute_time)
+
+    def log_pythonize_time(self, execute_time: float):
+        self.pythonize_times.append(execute_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                log = f"softmax_time : {(sum(self.softmax_times)/len(self.softmax_times) if self.softmax_times else 1):.5f} / {len(self.softmax_times)}"
+                + f"\nlog_softmax_time : {(sum(self.log_softmax_times)/len(self.log_softmax_times) if self.log_softmax_times else 1):.5f} / {len(self.log_softmax_times)}"
+                + f"\nsampling_time : {(sum(self.sampling_times)/len(self.sampling_times) if self.sampling_times else 1):.5f} / {len(self.sampling_times)}"
+                + f"\npythonize_time : {(sum(self.pythonize_times)/len(self.pythonize_times) if self.pythonize_times else 1):.5f} / {len(self.pythonize_times)}"
+                logger.info(f"sampling time... \\\n{log}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
+
+
 
 def get_sampler() -> torch.nn.Module:
     if envs.VLLM_USE_V1:
@@ -187,6 +238,8 @@ class Sampler(nn.Module):
         self.include_gpu_probs_tensor = False
         self.should_modify_greedy_probs_inplace = False
 
+        self.pLogger = PeriodicLogger()
+
     def _init_sampling_tensors(
         self,
         logits: torch.Tensor,
@@ -279,11 +332,16 @@ class Sampler(nn.Module):
 
         # We use float32 for probabilities and log probabilities.
         # Compute the probabilities.
+        start_time = time.perf_counter()
         probs = torch.softmax(logits, dim=-1, dtype=torch.float)
+        self.pLogger.log_softmax_time(time.perf_counter() - start_time)
         # Compute the log probabilities.
+        start_time = time.perf_counter()
         logprobs = torch.log_softmax(logits, dim=-1, dtype=torch.float)
+        self.pLogger.log_log_softmax_time(time.perf_counter() - start_time)
 
         # Sample the next tokens.
+        start_time = time.perf_counter()
         maybe_deferred_sample_results, maybe_sampled_tokens_tensor = _sample(
             probs,
             logprobs,
@@ -292,6 +350,7 @@ class Sampler(nn.Module):
             include_gpu_probs_tensor=self.include_gpu_probs_tensor,
             modify_greedy_probs=self._should_modify_greedy_probs_inplace,
         )
+        self.pLogger.log_sampling_time(time.perf_counter() - start_time)
 
         if self.include_gpu_probs_tensor:
             # Since we will defer sampler result Pythonization,
@@ -311,8 +370,10 @@ class Sampler(nn.Module):
             # Pythonize logprobs now (GPU -> CPU); do not defer.
             assert not isinstance(maybe_deferred_sample_results,
                                   SampleResultArgsType)
+            start_time = time.perf_counter()
             prompt_logprobs, sample_logprobs = get_logprobs(
                 logprobs, sampling_metadata, maybe_deferred_sample_results)
+            self.pLogger.log_pythonize_time(time.perf_counter() - start_time)
 
         return _build_sampler_output(
             maybe_deferred_sample_results,

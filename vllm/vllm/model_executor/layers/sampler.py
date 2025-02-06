@@ -574,10 +574,11 @@ def _random_sample(
     random_samples = random_samples.cpu()
     pLogger.log_2(time.perf_counter() - start_time)
 
+    logger.info(f"************random_samples size : {random_samples.size()}")
+
     sample_idx = 0
     results: SampleResultType = []
 
-    start_time = time.perf_counter()
     for seq_group in selected_seq_groups:
         if not seq_group.do_sample:
             results.append(([], []))
@@ -599,7 +600,6 @@ def _random_sample(
                                             num_parent_seqs, 0].tolist()
         results.append((next_token_ids, parent_ids))
         sample_idx += num_parent_seqs
-    pLogger.log_3(time.perf_counter() - start_time)
     return results
 
 

@@ -83,6 +83,7 @@ class PeriodicLogger:
 
         self.forward_times_list = [[] for i in range(pipeline_parallel_size)]
         self.compute_logits_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.sampling_times_list = [[] for i in range(pipeline_parallel_size)]
 
         self._thread.start()
 
@@ -91,6 +92,9 @@ class PeriodicLogger:
 
     def log_compute_logits_time(self, virtual_engine: int, compute_logits_time: float):
         self.compute_logits_times_list[virtual_engine].append(compute_logits_time)
+
+    def log_sampling_time(self, virtual_engine: int, sampling_time: float):
+        self.sampling_times_list[virtual_engine].append(sampling_time)
 
     def _run(self):
         while not self._stop_event.is_set():
@@ -103,6 +107,9 @@ class PeriodicLogger:
                 if get_pp_group().is_last_rank:
                     virtual_engines += " \\\ncompute logits times\\\n" + " \\\n".join(
                         [f"virtual_engine {i} : {(sum(compute_logits_times)/len(compute_logits_times)):.5f}" for i, compute_logits_times in enumerate(self.compute_logits_times_list)]
+                    )
+                    virtual_engines += " \\\nsampling times\\\n" + " \\\n".join(
+                        [f"virtual_engine {i} : {(sum(sampling_times)/len(sampling_times)):.5f}" for i, sampling_times in enumerate(self.sampling_times_list)]
                     )
                 logger.info(f"forward time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 
@@ -1796,10 +1803,15 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             model_input.async_callback()
 
         # Sample the next token.
+        #my: sampling_time logging
+        start_time = time.perf_counter()
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
+        sampling_time = time.perf_counter() - start_time
+        self.pLogger.log_sampling_time(model_input.input.virtual_engine, sampling_time)
+
         #my:: forward_time logging
         model_forward_time = time.perf_counter() - forward_start_time
         self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)

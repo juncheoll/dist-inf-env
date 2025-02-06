@@ -13,8 +13,6 @@ from vllm.model_executor.layers.vocab_parallel_embedding import (
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.platforms import current_platform
 
-from vllm.logger import init_logger
-logger = init_logger(__name__)
 
 class LogitsProcessor(nn.Module):
     """Process logits and apply logits processors from sampling metadata.
@@ -57,10 +55,8 @@ class LogitsProcessor(nn.Module):
         embedding_bias: Optional[torch.Tensor] = None,
     ) -> Optional[torch.Tensor]:
         if self.logits_as_input:
-            logger.info("############################### (1)")
             logits = hidden_states
         else:
-            logger.info("############################### (2)")
             if sampling_metadata is not None:
                 hidden_states = _prune_hidden_states(hidden_states,
                                                      sampling_metadata)
@@ -68,7 +64,6 @@ class LogitsProcessor(nn.Module):
             # Get the logits for the next tokens.
             logits = self._get_logits(hidden_states, lm_head, embedding_bias)
         if logits is not None:
-            logger.info("############################### (3)")
             if self.soft_cap is not None:
                 logits = logits / self.soft_cap
                 logits = torch.tanh(logits)
@@ -94,7 +89,6 @@ class LogitsProcessor(nn.Module):
                                              hidden_states,
                                              bias=embedding_bias)
         if self.use_gather:
-            logger.info("############################### (4)")
             # None may be returned for rank > 0
             logits = tensor_model_parallel_gather(logits)
         else:

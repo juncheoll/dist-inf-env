@@ -87,9 +87,11 @@ class PeriodicLogger:
         self._thread.start()
 
     def log_forward_time(self, virtual_engine: int, forward_time: float):
+        logger.info("mylog::::::::::::::::::::::::::::::::::::::::::::::::log_forward_time()")
         self.forward_times_list[virtual_engine].append(forward_time)
 
     def log_compute_logits_time(self, virtual_engine: int, compute_logits_time: float):
+        logger.info("mylog::::::::::::::::::::::::::::::::::::::::::::::::log_compute_logits_time()")
         self.compute_logits_times_list[virtual_engine].append(compute_logits_time)
 
     def _run(self):
@@ -1665,7 +1667,6 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         intermediate_tensors: Optional[IntermediateTensors] = None,
         num_steps: int = 1,
     ) -> Optional[Union[List[SamplerOutput], IntermediateTensors]]:
-        logger.info("mylog:::::::::::::::::execute_model() call in ModelRunner")
         if num_steps > 1:
             raise ValueError("num_steps > 1 is not supported in ModelRunner")
 

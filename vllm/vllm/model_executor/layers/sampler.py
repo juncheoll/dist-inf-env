@@ -67,10 +67,19 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
-                log = f"softmax_time : {(sum(self.softmax_times)/len(self.softmax_times) if self.softmax_times else 1):.5f} / {len(self.softmax_times)}"
-                + f"\nlog_softmax_time : {(sum(self.log_softmax_times)/len(self.log_softmax_times) if self.log_softmax_times else 1):.5f} / {len(self.log_softmax_times)}"
-                + f"\nsampling_time : {(sum(self.sampling_times)/len(self.sampling_times) if self.sampling_times else 1):.5f} / {len(self.sampling_times)}"
-                + f"\npythonize_time : {(sum(self.pythonize_times)/len(self.pythonize_times) if self.pythonize_times else 1):.5f} / {len(self.pythonize_times)}"
+                average_softmax_time = (sum(self.softmax_times)/len(self.softmax_times)) if self.softmax_times else 0.0
+                average_log_softmax_time = (sum(self.log_softmax_times)/len(self.log_softmax_times)) if self.log_softmax_times else 0.0
+                average_sampling_time = (sum(self.sampling_times)/len(self.sampling_times)) if self.sampling_times else 0.0
+                average_pythonize_time = (sum(self.pythonize_times)/len(self.pythonize_times)) if self.pythonize_times else 0.0
+
+
+                log = (
+                    f"softmax_time : {average_softmax_time:.5f} / {len(self.softmax_times)}\n"
+                    f"log_softmax_time : {average_log_softmax_time:.5f} / {len(self.log_softmax_times)}\n"
+                    f"sampling_time : {average_sampling_time:.5f} / {len(self.sampling_times)}\n"
+                    f"pythonize_time : {average_pythonize_time:.5f} / {len(self.pythonize_times)}"
+                )
+
                 logger.info(f"sampling time... \\\n{log}")
 
             except Exception as e:

@@ -98,7 +98,7 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f}" for i, execute_times in enumerate(self.execute_times_list)]
+                    [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times)):.5f}" for i, forward_times in enumerate(self.forward_times_list)]
                 )
                 if get_pp_group().is_last_rank:
                     virtual_engines += " \\\ncompute logits times\\\n" + " \\\n".join(
@@ -1805,7 +1805,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 model_forward_end)
             #my:: forward_time logging
             self.pLogger.log_forward_time(model_input.virtual_engine, model_forward_time)
-            
+
             orig_model_forward_time = 0.0
             if intermediate_tensors is not None:
                 orig_model_forward_time = intermediate_tensors.tensors.get(

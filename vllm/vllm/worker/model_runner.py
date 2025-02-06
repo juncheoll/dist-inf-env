@@ -102,14 +102,14 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times)):.5f}" for i, forward_times in enumerate(self.forward_times_list)]
+                    [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times)):.5f} / {len(forward_times)}" for i, forward_times in enumerate(self.forward_times_list)]
                 )
                 if get_pp_group().is_last_rank:
                     virtual_engines += " \\\ncompute logits times\\\n" + " \\\n".join(
-                        [f"virtual_engine {i} : {(sum(compute_logits_times)/len(compute_logits_times)):.5f}" for i, compute_logits_times in enumerate(self.compute_logits_times_list)]
+                        [f"virtual_engine {i} : {(sum(compute_logits_times)/len(compute_logits_times)):.5f} / {len(compute_logits_times)}" for i, compute_logits_times in enumerate(self.compute_logits_times_list)]
                     )
                     virtual_engines += " \\\nsampling times\\\n" + " \\\n".join(
-                        [f"virtual_engine {i} : {(sum(sampling_times)/len(sampling_times)):.5f}" for i, sampling_times in enumerate(self.sampling_times_list)]
+                        [f"virtual_engine {i} : {(sum(sampling_times)/len(sampling_times)):.5f} / {len(sampling_times)}" for i, sampling_times in enumerate(self.sampling_times_list)]
                     )
                 logger.info(f"forward time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 

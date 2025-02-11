@@ -1137,7 +1137,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
               SamplingMetadataCache() \
                 if self.parallel_config.pipeline_parallel_size == 1 else None
         
-        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=5)
 
     def load_model(self) -> None:
         logger.info("Starting to load model %s...", self.model_config.model)

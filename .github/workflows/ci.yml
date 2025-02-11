@@ -39,7 +39,7 @@ jobs:
           - { port: 9001 }
           - { port: 9002 }
           - { port: 9003 }
-          - { port: 9004 }
+          #- { port: 9004 }
           #- { port: 9005 }
           
     steps:

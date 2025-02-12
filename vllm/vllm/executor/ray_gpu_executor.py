@@ -191,7 +191,7 @@ class RayGPUExecutor(DistributedGPUExecutor):
             """
             ip = worker_to_ip[worker]
             return (ip != driver_ip, ip_counts[ip], ip)
-
+ 
         # After sorting, the workers on the same node will be
         # close to each other, and the workers on the driver
         # node will be placed first.

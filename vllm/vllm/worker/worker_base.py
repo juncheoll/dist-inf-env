@@ -77,7 +77,7 @@ class WorkerBase(ABC):
         self.observability_config = vllm_config.observability_config
         self.kv_transfer_config = vllm_config.kv_transfer_config
 
-        self.pLogger = PeriodicLogger(pipeline_parallel_size=5)
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     @abstractmethod
     def init_device(self) -> None:

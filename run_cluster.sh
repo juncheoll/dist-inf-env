@@ -70,7 +70,7 @@ docker run  -d \
     --shm-size 10.24g \
     --gpus all \
     -v "${PATH_TO_HF_HOME}:/root/.cache/huggingface" \
-    -v ./vllm:/vllm \
+    -v ./:/dist-inf-env/ \
     "${ADDITIONAL_ARGS[@]}" \
     "${DOCKER_IMAGE}" \
     bash -c "${RAY_START_CMD} & tail -f /dev/null"

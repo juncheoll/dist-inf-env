@@ -28,6 +28,10 @@ DEFAULT_LOGGING_CONFIG = {
             "datefmt": _DATE_FORMAT,
             "format": _FORMAT,
         },
+        "my_json": {
+            "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)%(levelname)%(name)%(message)"
+        }
     },
     "handlers": {
         "vllm": {
@@ -36,10 +40,16 @@ DEFAULT_LOGGING_CONFIG = {
             "level": VLLM_LOGGING_LEVEL,
             "stream": "ext://sys.stdout",
         },
+        "my_file": {
+            "class": "logging.FileHandler",
+            "formatter": "my_json",
+            "level": "INFO",
+            "filename": "/dist-inf-env/log.log"
+        }
     },
     "loggers": {
         "vllm": {
-            "handlers": ["vllm"],
+            "handlers": ["vllm", "my_file"],
             "level": "DEBUG",
             "propagate": False,
         },

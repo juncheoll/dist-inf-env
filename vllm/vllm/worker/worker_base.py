@@ -77,7 +77,7 @@ class WorkerBase(ABC):
         self.observability_config = vllm_config.observability_config
         self.kv_transfer_config = vllm_config.kv_transfer_config
 
-        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
+        #self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     @abstractmethod
     def init_device(self) -> None:
@@ -377,7 +377,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     and self.observability_config.collect_model_execute_time):
                 orig_model_execute_time = intermediate_tensors.tensors.get(
                     "model_execute_time", torch.tensor(0)).item()
-        logger.info(f"start rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
+        #logger.info(f"start rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
         output = self.model_runner.execute_model(
             model_input=model_input,
             kv_caches=self.kv_cache[worker_input.virtual_engine]
@@ -400,7 +400,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     model_execute_time + orig_model_execute_time)
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
-            logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
+            #logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
             return [None]
         if (self.observability_config is not None
                 and self.observability_config.collect_model_execute_time
@@ -409,7 +409,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 o.model_execute_time = (orig_model_execute_time +
                                         model_execute_time)
                 
-        logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
+        #logger.info(f"rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}, time = {time.perf_counter()}")
         # output is List[SamplerOutput]
         return output
 

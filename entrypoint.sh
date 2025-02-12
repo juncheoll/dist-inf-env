@@ -18,9 +18,9 @@ if [ -d "/vllm" ]; then
     fi
 
     # rsync를 사용하여 /vllm 내용을 $LOCATION/vllm에 덮어쓰기
-    rsync -av --exclude='*.pyc' --exclude='__pycache__' /vllm/vllm "$LOCATION/"
+    rsync -av --exclude='*.pyc' --exclude='__pycache__' /dist-inf-env/vllm/vllm "$LOCATION/"
 
-    echo "[entrypoint.sh] Sync completed: /vllm -> $LOCATION/vllm"
+    echo "[entrypoint.sh] Sync completed: /dist-inf-env/vllm/vllm -> $LOCATION/vllm"
 else
     echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to sync."
 fi

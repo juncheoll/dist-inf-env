@@ -21,6 +21,7 @@ jobs:
           script: |
             cd /home/sslab/dist-inf-env
             git pull origin main
+            > log.log
             sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --head ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0
             # 컨테이너 실행 확인
             if sudo docker ps --filter "name=node" --format '{{.Names}}' | grep -q "^node$"; then
@@ -54,6 +55,7 @@ jobs:
           script: |
             cd /home/sslab/dist-inf-env
             git pull origin main
+            > log.log
             sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --worker ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0
             # 컨테이너 실행 확인
             if sudo docker ps --filter "name=node" --format '{{.Names}}' | grep -q "^node$"; then

@@ -53,6 +53,33 @@ class GraphCaptureContext:
 
 TensorMetadata = namedtuple("TensorMetadata", ["device", "dtype", "size"])
 
+import sys
+from collections.abc import Mapping, Iterable
+
+def get_deep_size(obj, seen=None):
+    """객체와 그 내부에 포함된 객체들의 메모리 사용량(바이트 단위)을 재귀적으로 계산합니다."""
+    if seen is None:
+        seen = set()
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    seen.add(obj_id)
+
+    size = sys.getsizeof(obj)
+
+    # torch.Tensor인 경우 데이터 크기를 추가 (추가 오버헤드는 미포함)
+    if isinstance(obj, torch.Tensor):
+        size += obj.element_size() * obj.nelement()
+
+    # Mapping (예: dict)
+    elif isinstance(obj, Mapping):
+        size += sum((get_deep_size(k, seen) + get_deep_size(v, seen)) for k, v in obj.items())
+
+    # Iterable이지만 문자열, bytes, bytearray는 제외
+    elif isinstance(obj, Iterable) and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum(get_deep_size(item, seen) for item in obj)
+    
+    return size
 
 def _split_tensor_dict(
     tensor_dict: Dict[str, Union[torch.Tensor, Any]]
@@ -62,6 +89,7 @@ def _split_tensor_dict(
          by its metadata.
     2. A list of tensors.
     """
+    logger.info(f"size of tensor : {get_deep_size(tensor_dict)}")
     metadata_list: List[Tuple[str, Any]] = []
     tensor_list: List[torch.Tensor] = []
     for key, value in tensor_dict.items():

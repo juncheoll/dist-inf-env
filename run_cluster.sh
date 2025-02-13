@@ -65,7 +65,6 @@ setup_images
 # Run the docker command with the user specified parameters and additional arguments
 chmod +x entrypoint.sh
 docker run  -d \
-    --rm \
     --network host \
     --name node \
     --shm-size 10.24g \

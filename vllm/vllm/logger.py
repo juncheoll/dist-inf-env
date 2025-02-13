@@ -42,8 +42,8 @@ DEFAULT_LOGGING_CONFIG = {
         },
         "my_file": {
             "class": "logging.FileHandler",
-            "formatter": "my_json",
-            "level": "INFO",
+            "formatter": "vllm",
+            "level": VLLM_LOGGING_LEVEL,
             "filename": "/dist-inf-env/log.log"
         }
     },

@@ -32,7 +32,7 @@ class PeriodicLogger:
 
         self.execute_times_list = [[] for i in range(pipeline_parallel_size)]
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_execute_time(self, virtual_engine: int, execute_time: float):
         self.execute_times_list[virtual_engine].append(execute_time)
@@ -77,7 +77,7 @@ class WorkerBase(ABC):
         self.observability_config = vllm_config.observability_config
         self.kv_transfer_config = vllm_config.kv_transfer_config
 
-        #self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     @abstractmethod
     def init_device(self) -> None:

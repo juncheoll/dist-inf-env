@@ -85,7 +85,7 @@ class PeriodicLogger:
         self.compute_logits_times_list = [[] for i in range(pipeline_parallel_size)]
         self.sampling_times_list = [[] for i in range(pipeline_parallel_size)]
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_forward_time(self, virtual_engine: int, forward_time: float):
         self.forward_times_list[virtual_engine].append(forward_time)
@@ -1137,7 +1137,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
               SamplingMetadataCache() \
                 if self.parallel_config.pipeline_parallel_size == 1 else None
         
-        #self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     def load_model(self) -> None:
         logger.info("Starting to load model %s...", self.model_config.model)

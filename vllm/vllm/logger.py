@@ -39,7 +39,7 @@ DEFAULT_LOGGING_CONFIG = {
             "formatter": "vllm",
             "level": VLLM_LOGGING_LEVEL,
             "stream": "ext://sys.stdout",
-        },
+        }, 
         "my_file": {
             "class": "logging.FileHandler",
             "formatter": "vllm",

@@ -20,7 +20,8 @@ jobs:
           key: ${{ secrets.WORKER_KEY }}
           script: |
             cd /home/sslab/dist-inf-env
-            git pull origin main
+            git fetch --all
+            git reset --hard origin/main
             > log.log
             sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --head ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0
             # 컨테이너 실행 확인
@@ -54,7 +55,8 @@ jobs:
           key: ${{ secrets.WORKER_KEY }}  # secrets에 맞춰 가져오는 방식
           script: |
             cd /home/sslab/dist-inf-env
-            git pull origin main
+            git fetch --all
+            git reset --hard origin/main
             > log.log
             sudo bash run_cluster.sh vllm-env ${{ secrets.HEAD_HOST }} --worker ~/.cache/huggingface -e NCCL_SOCKET_IFNAME=enp7s0 -e GLOO_SOCKET_IFNAME=enp7s0
             # 컨테이너 실행 확인

@@ -24,7 +24,7 @@ if [ -d "/dist-inf-env/vllm/vllm" ]; then
 else
     echo "[entrypoint.sh] WARNING: /dist-inf-env/vllm/vllm does not exist. Nothing to sync."
 fi
-
+#
 
 # 3) 추가적으로, 컨테이너 내에서 실행할 명령이 있다면 여기서 실행
 python3 -c "import vllm; print('VLLM imported!')"

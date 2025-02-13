@@ -19,6 +19,7 @@ If you only need to use the distributed environment without model/pipeline
  parallelism, you can skip the model parallel initialization and destruction
  steps.
 """
+import time
 import contextlib
 import gc
 import pickle
@@ -89,7 +90,7 @@ def _split_tensor_dict(
          by its metadata.
     2. A list of tensors.
     """
-    logger.info(f"size of tensor : {get_deep_size(tensor_dict)}")
+    #logger.info(f"size of tensor : {get_deep_size(tensor_dict)}")
     metadata_list: List[Tuple[str, Any]] = []
     tensor_list: List[torch.Tensor] = []
     for key, value in tensor_dict.items():
@@ -692,7 +693,7 @@ class GroupCoordinator:
             for async_handle in async_handles:
                 async_handle.wait()
         return tensor_dict
-
+    
     def send_tensor_dict(
         self,
         tensor_dict: Dict[str, Union[torch.Tensor, Any]],
@@ -727,7 +728,10 @@ class GroupCoordinator:
         # `metadata_list` lives in CPU memory.
         # `send_object_list` has serialization & deserialization,
         # all happening on CPU. Therefore, we can use the CPU group.
+
+        start_time = time.perf_counter()
         self.send_object(metadata_list, dst=dst)
+        logger.info(f"time of send_object = {time.perf_counter()-start_time}")
         for tensor in tensor_list:
             if tensor.numel() == 0:
                 # Skip sending empty tensors.
@@ -738,6 +742,7 @@ class GroupCoordinator:
                     and tensor.numel() % all_gather_size == 0):
                 tensor = tensor.reshape(all_gather_size, -1)[all_gather_rank]
 
+            start_time = time.perf_counter()
             if tensor.is_cpu:
                 # use metadata_group for CPU tensors
                 torch.distributed.send(tensor,
@@ -748,6 +753,7 @@ class GroupCoordinator:
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=group)
+            logger.info(f"time of torch.distributed.send = {time.perf_counter()-start_time}")
         return None
 
     def recv_tensor_dict(

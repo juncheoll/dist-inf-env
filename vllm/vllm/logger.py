@@ -12,21 +12,29 @@ from typing import Dict, Optional
 
 import vllm.envs as envs
 
+class NewLineMicrosecondsFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.datetime.fromtimestamp(record.created)
+        if datefmt:
+            return dt.strftime(datefmt)
+        else:
+            return dt.strftime("%m-%d %H:%M:.%S.%f")
+
 VLLM_CONFIGURE_LOGGING = envs.VLLM_CONFIGURE_LOGGING
 VLLM_LOGGING_CONFIG_PATH = envs.VLLM_LOGGING_CONFIG_PATH
 VLLM_LOGGING_LEVEL = envs.VLLM_LOGGING_LEVEL
 VLLM_LOGGING_PREFIX = envs.VLLM_LOGGING_PREFIX
 
-_FORMAT = (f"{VLLM_LOGGING_PREFIX}%(levelname)s %(asctime)s "
+_FORMAT = (f"%(levelname)s %(asctime)s "
            "%(filename)s:%(lineno)d] %(message)s")
-_DATE_FORMAT = "%m-%d %H:%M:%S"
+_DATE_FORMAT = "%m-%d %H:%M:%S.%f"
 
 DEFAULT_LOGGING_CONFIG = {
     "formatters": {
         "vllm": {
-            "class": "vllm.logging_utils.NewLineFormatter",
+            "class": "NewLineMicrosecondsFormatter",
             "datefmt": _DATE_FORMAT,
-            "format": _FORMAT,
+            "format": f"{VLLM_LOGGING_PREFIX}{_FORMAT}",
         },
         "my_json": {
             "class": "pythonjsonlogger.jsonlogger.JsonFormatter",

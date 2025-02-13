@@ -15,7 +15,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.HOST }}
-          port: 9000
+          port: 9003
           username: ${{ secrets.USER }}
           key: ${{ secrets.WORKER_KEY }}
           script: |
@@ -40,7 +40,7 @@ jobs:
         worker:
           - { port: 9001 }
           - { port: 9002 }
-          - { port: 9003 }
+          - { port: 9000 }
           - { port: 9004 }
           - { port: 9005 }
           

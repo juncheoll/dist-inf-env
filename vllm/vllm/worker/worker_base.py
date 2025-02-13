@@ -415,6 +415,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 
         #logger.info(f"sampled logits, execute model end, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
         # output is List[SamplerOutput]
+        logger.info(f"elapsed_time_of_execute = {model_execute_time}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
         return output
 
     def _execute_model_spmd(

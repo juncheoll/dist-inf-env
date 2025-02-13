@@ -8,8 +8,8 @@ LOCATION=$(pip show vllm | grep '^Location:' | awk '{print $2}')
 echo "[entrypoint.sh] vllm is installed at: $LOCATION"
 
 # 2) 수정된 /vllm 폴더에서 변경 사항을 dist-packages/vllm에 덮어쓰기
-if [ -d "/vllm" ]; then
-    echo "[entrypoint.sh] Syncing changes from /vllm to $LOCATION/vllm..."
+if [ -d "/dist-inf-env/vllm/vllm" ]; then
+    echo "[entrypoint.sh] Syncing changes from /dist-inf-env/vllm/vllm to $LOCATION/vllm..."
     
     # dist-packages 경로가 없으면 경고 출력 후 종료
     if [ ! -d "$LOCATION/vllm" ]; then
@@ -22,7 +22,7 @@ if [ -d "/vllm" ]; then
 
     echo "[entrypoint.sh] Sync completed: /dist-inf-env/vllm/vllm -> $LOCATION/vllm"
 else
-    echo "[entrypoint.sh] WARNING: /vllm does not exist. Nothing to sync."
+    echo "[entrypoint.sh] WARNING: /dist-inf-env/vllm/vllm does not exist. Nothing to sync."
 fi
 
 

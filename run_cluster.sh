@@ -48,7 +48,7 @@ cleanup() {
 }
 cleanup
 
-docker rmi vllm-env
+#docker rmi vllm-env
 setup_images() {
     IMAGE_ID=$(docker images -q "${DOCKER_IMAGE}")
     if [ -z "$IMAGE_ID" ]; then

@@ -731,7 +731,7 @@ class GroupCoordinator:
 
         start_time = time.perf_counter()
         self.send_object(metadata_list, dst=dst)
-        logger.info(f"time of send_object = {time.perf_counter()-start_time}, size = {get_deep_size(metadata_list)}")
+        #logger.info(f"time of send_object = {time.perf_counter()-start_time}, size = {get_deep_size(metadata_list)}")
         for tensor in tensor_list:
             if tensor.numel() == 0:
                 # Skip sending empty tensors.
@@ -753,7 +753,7 @@ class GroupCoordinator:
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=group)
-            logger.info(f"time of torch.distributed.send = {time.perf_counter()-start_time}, size = {get_deep_size(tensor_dict)}")
+            #logger.info(f"time of torch.distributed.send = {time.perf_counter()-start_time}, size = {get_deep_size(tensor_dict)}")
         return None
 
     def recv_tensor_dict(

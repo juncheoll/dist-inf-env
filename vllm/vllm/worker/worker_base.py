@@ -403,8 +403,8 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
             elapsed_time_of_send_tensor_dict = time.perf_counter() - start_time_send_tensor
-            #logger.info(f"elapsed_time_of_send_tensor = {elapsed_time_of_send_tensor_dict}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
-            #logger.info(f"elapsed_time_of_execute = {model_execute_time}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
+            logger.info(f"elapsed_time_of_send_tensor = {elapsed_time_of_send_tensor_dict}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
+            logger.info(f"elapsed_time_of_execute = {model_execute_time}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
             return [None]
         if (self.observability_config is not None
                 and self.observability_config.collect_model_execute_time
@@ -415,7 +415,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 
         #logger.info(f"sampled logits, execute model end, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
         # output is List[SamplerOutput]
-        #logger.info(f"elapsed_time_of_execute = {model_execute_time}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
+        logger.info(f"elapsed_time_of_execute = {model_execute_time}, rank = {get_pp_group().rank}, ve = {execute_model_req.virtual_engine}")
         return output
 
     def _execute_model_spmd(

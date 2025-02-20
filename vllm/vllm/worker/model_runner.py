@@ -1808,12 +1808,12 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         # Sample the next token.
         #my: sampling_time logging
         start_time = time.perf_counter()
-        logger.info(f"start sampling(virtual_engine = {model_input.virtual_engine if model_input else "None"})(rank = {get_pp_group().rank})")
+        #logger.info(f"start sampling(virtual_engine = {model_input.virtual_engine if model_input else "None"})(rank = {get_pp_group().rank})")
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
-        logger.info(f"end sampling(virtual_engine = {model_input.virtual_engine if model_input else "None"})(rank = {get_pp_group().rank})")
+        #logger.info(f"end sampling(virtual_engine = {model_input.virtual_engine if model_input else "None"})(rank = {get_pp_group().rank})")
         sampling_time = time.perf_counter() - start_time
         if kv_caches[0].numel() != 0:
             self.pLogger.log_sampling_time(model_input.virtual_engine, sampling_time)

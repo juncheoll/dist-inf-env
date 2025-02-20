@@ -572,6 +572,7 @@ def _random_sample(
     # Find the maximum n value of the prompt phase requests.
     start_time = time.perf_counter()
     random_samples = random_samples.cpu()
+    logger.info(f"여기에 이 size {random_samples.size()}, {random_samples.dtype}")
     pLogger.log_2(time.perf_counter() - start_time)
 
     #logger.info(f"************random_samples size : {random_samples.numel() * random_samples.element_size()}")

@@ -362,11 +362,11 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         model_input, worker_input, kwargs = inputs
         num_steps = worker_input.num_steps
 
-        logger.info(f"prepare_input elapsed time = {time.perf_counter() - s_p_t}")
+        #logger.info(f"prepare_input elapsed time = {time.perf_counter() - s_p_t}")
         #logger.info(f"end prepare_input and start execute_worker(virtual_engine = {execute_model_req.virtual_engine if execute_model_req else "None"})(rank = {get_pp_group().rank})")
         s_e_t = time.perf_counter()
         self.execute_worker(worker_input)
-        logger.info(f"execute_worker elapsed time = {time.perf_counter() - s_e_t}")
+        #logger.info(f"execute_worker elapsed time = {time.perf_counter() - s_e_t}")
         #logger.info(f"end execute_worker(virtual_engine = {execute_model_req.virtual_engine if execute_model_req else "None"})(rank = {get_pp_group().rank})")
 
         # If there is no input, we don't need to execute the model.

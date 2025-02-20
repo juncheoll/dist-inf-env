@@ -745,11 +745,13 @@ class GroupCoordinator:
             start_time = time.perf_counter()
             if tensor.is_cpu:
                 # use metadata_group for CPU tensors
+                logger.info("CPU 통신")
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=metadata_group)
             else:
                 # use group for GPU tensors
+                logger.info("GPU 통신")
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=group)

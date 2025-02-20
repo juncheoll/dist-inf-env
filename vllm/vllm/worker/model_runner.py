@@ -1702,6 +1702,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             graph_batch_size = model_input.input_tokens.shape[0]
             model_executable = self.graph_runners[virtual_engine][
                 graph_batch_size]
+            logger.info("dasflkajdsofdsao\ndaksfhdosfdas\nlsakdfhsadofdsoaifdsaiofhdsao\nadsfhpodasfopdais\nfhadspofadspfh")
         else:
             model_executable = self.model
 

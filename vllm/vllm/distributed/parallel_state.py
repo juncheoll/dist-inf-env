@@ -565,18 +565,18 @@ class GroupCoordinator:
         #logger.info(f"size tensor : size={get_deep_size(size_tensor)}, {size_tensor.size()}")
 
         # Send object size
-        #start_time = time.perf_counter()
+        start_time = time.perf_counter()
         torch.distributed.send(size_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        #logger.info(f"send size_tensor time = {time.perf_counter() - start_time}")
+        logger.info(f"send size_tensor time = {time.perf_counter() - start_time}")
 
         # Send object
-        #start_time = time.perf_counter()
+        start_time = time.perf_counter()
         torch.distributed.send(object_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        #logger.info(f"send object_tensor time = {time.perf_counter() - start_time}")
+        logger.info(f"send object_tensor time = {time.perf_counter() - start_time}")
 
         return None
 
@@ -734,14 +734,14 @@ class GroupCoordinator:
             tensor_dict,
             dict), f"Expecting a dictionary, got {type(tensor_dict)}"
         metadata_list, tensor_list = _split_tensor_dict(tensor_dict)
-        logger.info(f"metadata_list = {metadata_list}\n tensor_list = {tensor_list}")
+        #logger.info(f"metadata_list = {metadata_list}\n tensor_list = {tensor_list}")
         # `metadata_list` lives in CPU memory.
         # `send_object_list` has serialization & deserialization,
         # all happening on CPU. Therefore, we can use the CPU group.
 
         start_time = time.perf_counter()
         self.send_object(metadata_list, dst=dst)
-        #logger.info(f"time of send_object = {time.perf_counter()-start_time}, size = {get_deep_size(metadata_list)}")
+        logger.info(f"time of send_object = {time.perf_counter()-start_time}, size = {get_deep_size(metadata_list)}")
         for tensor in tensor_list:
             if tensor.numel() == 0:
                 # Skip sending empty tensors.
@@ -763,7 +763,7 @@ class GroupCoordinator:
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=group)
-            #logger.info(f"time of torch.distributed.send = {time.perf_counter()-start_time}, size = {get_deep_size(tensor_dict)}")
+            logger.info(f"time of torch.distributed.send = {time.perf_counter()-start_time}, size = {get_deep_size(tensor_dict)}")
         return None
 
     def recv_tensor_dict(

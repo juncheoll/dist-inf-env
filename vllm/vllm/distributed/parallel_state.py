@@ -555,29 +555,24 @@ class GroupCoordinator:
             "Invalid destination rank. Destination rank is the same "
             "as the current rank.")
 
-        start_time = time.perf_counter()
+        
         # Serialize object to tensor and get the size as well
         object_tensor = torch.frombuffer(pickle.dumps(obj), dtype=torch.uint8)
-        logger.info(f"object_tensor elapsed time = {time.perf_counter() - start_time}")
-        start_time = time.perf_counter()
+        logger.info(f"object tensor : {get_deep_size(object_tensor)}")
         size_tensor = torch.tensor([object_tensor.numel()],
                                    dtype=torch.long,
                                    device="cpu")
-        logger.info(f"size_tensor elapsed time = {time.perf_counter() - start_time}")
+        logger.info(f"size tensor : {get_deep_size(size_tensor)}")
 
         # Send object size
-        start_time = time.perf_counter()
         torch.distributed.send(size_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        logger.info(f"size_tensor transmission elapsed time = {time.perf_counter() - start_time}")
 
         # Send object
-        start_time = time.perf_counter()
         torch.distributed.send(object_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        logger.info(f"object_tensor transmission elapsed time = {time.perf_counter() - start_time}")
 
         return None
 

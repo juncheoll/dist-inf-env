@@ -734,6 +734,7 @@ class GroupCoordinator:
             tensor_dict,
             dict), f"Expecting a dictionary, got {type(tensor_dict)}"
         metadata_list, tensor_list = _split_tensor_dict(tensor_dict)
+        logger.info(f"metadata_list = {metadata_list}\n tensor_list = {tensor_list}")
         # `metadata_list` lives in CPU memory.
         # `send_object_list` has serialization & deserialization,
         # all happening on CPU. Therefore, we can use the CPU group.

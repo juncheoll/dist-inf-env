@@ -558,21 +558,25 @@ class GroupCoordinator:
         
         # Serialize object to tensor and get the size as well
         object_tensor = torch.frombuffer(pickle.dumps(obj), dtype=torch.uint8)
-        logger.info(f"object tensor : {get_deep_size(object_tensor)}")
+        logger.info(f"object tensor : size={get_deep_size(object_tensor)}, {object_tensor.size()}")
         size_tensor = torch.tensor([object_tensor.numel()],
                                    dtype=torch.long,
                                    device="cpu")
-        logger.info(f"size tensor : {get_deep_size(size_tensor)}")
+        logger.info(f"size tensor : size={get_deep_size(size_tensor)}, {size_tensor.size()}")
 
         # Send object size
+        start_time = time.perf_counter()
         torch.distributed.send(size_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
+        logger.info(f"send size_tensor time = {time.perf_counter() - start_time}")
 
         # Send object
+        start_time = time.perf_counter()
         torch.distributed.send(object_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
+        logger.info(f"send object_tensor time = {time.perf_counter() - start_time}")
 
         return None
 
@@ -589,11 +593,14 @@ class GroupCoordinator:
         size_tensor = torch.empty(1, dtype=torch.long, device="cpu")
 
         # Receive object size
+        start_time = time.perf_counter()
         rank_size = torch.distributed.recv(size_tensor,
                                            src=self.ranks[src],
                                            group=self.cpu_group)
+        logger.info(f"recv size_tensor time = {time.perf_counter() - start_time}")
 
         # Tensor to receive serialized objects into.
+        start_time = time.perf_counter()
         object_tensor = torch.empty(  # type: ignore[call-overload]
             size_tensor.item(),  # type: ignore[arg-type]
             dtype=torch.uint8,
@@ -602,6 +609,7 @@ class GroupCoordinator:
         rank_object = torch.distributed.recv(object_tensor,
                                              src=self.ranks[src],
                                              group=self.cpu_group)
+        logger.info(f"recv object_tensor time = {time.perf_counter() - start_time}")
 
         assert rank_object == rank_size, (
             "Received object sender rank does not match the size sender rank.")

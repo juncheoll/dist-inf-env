@@ -52,7 +52,7 @@ class PeriodicLogger:
         self.times2 = []
         self.times3 = []
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_softmax_time(self, execute_time: float):
         self.softmax_times.append(execute_time)
@@ -90,13 +90,13 @@ class PeriodicLogger:
                 average_time3 = (sum(self.times3)/len(self.times3)) if self.times3 else 0.0
 
                 log = (
-                    f"softmax_time : {average_softmax_time:.5f} / {len(self.softmax_times)}\n"
-                    f"log_softmax_time : {average_log_softmax_time:.5f} / {len(self.log_softmax_times)}\n"
-                    f"sampling_time : {average_sampling_time:.5f} / {len(self.sampling_times)}\n"
-                    f"pythonize_time : {average_pythonize_time:.5f} / {len(self.pythonize_times)}\n"
-                    f"time1 : {average_time1:.5f} / {len(self.times1)}\n"
-                    f"time2 : {average_time2:.5f} / {len(self.times2)}\n"
-                    f"time3 : {average_time3:.5f} / {len(self.times3)}"
+                    f"softmax_time : {average_softmax_time:.7f} / {len(self.softmax_times)}\n"
+                    f"log_softmax_time : {average_log_softmax_time:.7f} / {len(self.log_softmax_times)}\n"
+                    f"sampling_time : {average_sampling_time:.7f} / {len(self.sampling_times)}\n"
+                    f"pythonize_time : {average_pythonize_time:.7f} / {len(self.pythonize_times)}\n"
+                    f"time1 : {average_time1:.7f} / {len(self.times1)}\n"
+                    f"time2 : {average_time2:.7f} / {len(self.times2)}\n"
+                    f"time3 : {average_time3:.7f} / {len(self.times3)}"
                 )
 
                 logger.info(f"sampling time... \\\n{log}")

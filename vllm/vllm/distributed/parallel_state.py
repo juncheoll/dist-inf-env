@@ -555,23 +555,29 @@ class GroupCoordinator:
             "Invalid destination rank. Destination rank is the same "
             "as the current rank.")
 
+        start_time = time.perf_counter()
         # Serialize object to tensor and get the size as well
         object_tensor = torch.frombuffer(pickle.dumps(obj), dtype=torch.uint8)
-
+        logger.info(f"object_tensor elapsed time = {time.perf_counter() - start_time}")
+        start_time = time.perf_counter()
         size_tensor = torch.tensor([object_tensor.numel()],
                                    dtype=torch.long,
                                    device="cpu")
+        logger.info(f"size_tensor elapsed time = {time.perf_counter() - start_time}")
 
         # Send object size
-
+        start_time = time.perf_counter()
         torch.distributed.send(size_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
+        logger.info(f"size_tensor transmission elapsed time = {time.perf_counter() - start_time}")
 
         # Send object
+        start_time = time.perf_counter()
         torch.distributed.send(object_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
+        logger.info(f"object_tensor transmission elapsed time = {time.perf_counter() - start_time}")
 
         return None
 
@@ -745,13 +751,11 @@ class GroupCoordinator:
             start_time = time.perf_counter()
             if tensor.is_cpu:
                 # use metadata_group for CPU tensors
-                logger.info("CPU 통신")
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=metadata_group)
             else:
                 # use group for GPU tensors
-                logger.info("GPU 통신")
                 torch.distributed.send(tensor,
                                        dst=self.ranks[dst],
                                        group=group)

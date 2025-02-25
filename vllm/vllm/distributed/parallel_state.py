@@ -569,14 +569,14 @@ class GroupCoordinator:
         torch.distributed.send(size_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        logger.info(f"send size_tensor time = {time.perf_counter() - start_time}")
+        #logger.info(f"send size_tensor time = {time.perf_counter() - start_time}")
 
         # Send object
         start_time = time.perf_counter()
         torch.distributed.send(object_tensor,
                                dst=self.ranks[dst],
                                group=self.cpu_group)
-        logger.info(f"send object_tensor time = {time.perf_counter() - start_time}")
+        #logger.info(f"send object_tensor time = {time.perf_counter() - start_time}")
 
         return None
 

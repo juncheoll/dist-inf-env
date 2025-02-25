@@ -32,7 +32,7 @@ class PeriodicLogger:
 
         self.execute_times_list = [[] for i in range(pipeline_parallel_size)]
 
-        #self._thread.start()
+        self._thread.start()
 
     def log_execute_time(self, virtual_engine: int, execute_time: float):
         self.execute_times_list[virtual_engine].append(execute_time)

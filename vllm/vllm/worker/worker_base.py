@@ -43,7 +43,7 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times)):.5f}" for i, execute_times in enumerate(self.execute_times_list)]
+                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times) if execute_times else 1):.5f}" for i, execute_times in enumerate(self.execute_times_list)]
                 )
                 logger.info(f"execute time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 

@@ -20,10 +20,11 @@ RUN apt-get update && \
 WORKDIR /
 COPY . ./dist-inf-env
 
-RUN pip install vllm==0.6.6 --break-system-packages
+#RUN pip install vllm==0.6.6 --break-system-packages
+RUN pip install vllm --break-system-packages
 RUN pip install bitsandbytes>=0.45.0 --break-system-packages
 RUN pip install python-json-logger --break-system-packages
 
 RUN chmod +x /dist-inf-env/entrypoint.sh
 
-ENTRYPOINT ["/dist-inf-env/entrypoint.sh"]
+#ENTRYPOINT ["/dist-inf-env/entrypoint.sh"]

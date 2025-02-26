@@ -532,10 +532,8 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
         assert not self.use_ray_spmd_worker, (
             "driver_worker does not exist for VLLM_USE_RAY_SPMD_WORKER=1")
         if not self.tp_driver_workers:
-            #logger.info(f"****my log : run driver_exec_method('execute_model') from RayGPUExecutorAsync(virtual_engine={execute_model_req.virtual_engine})****")
             results = await self.driver_exec_method("execute_model",
                                                  execute_model_req)
-            #logger.info(f"****my log : results from _driver_execute_model_async() : {results}****")
             return results
 
         if self.pp_locks is None:
@@ -564,9 +562,7 @@ class RayGPUExecutorAsync(RayGPUExecutor, DistributedGPUExecutorAsync):
         results = await asyncio.gather(*tasks)
 
         # Only the last PP stage has the final results.
-        #logger.info(f"****my log : results from asyncio.gather : {results}****")
         import time
-        #time.sleep(0.1)
         return results[-1]
 
     async def _start_worker_execution_loop(self):

@@ -25,6 +25,7 @@ RUN pip install vllm --break-system-packages
 RUN pip install bitsandbytes>=0.45.0 --break-system-packages
 RUN pip install python-json-logger --break-system-packages
 RUN pip install pyarrow --break-system-packages
+RUN pip install pandas --break-system-packages
 
 RUN chmod +x /dist-inf-env/entrypoint.sh
 

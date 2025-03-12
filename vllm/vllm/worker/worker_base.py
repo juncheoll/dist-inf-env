@@ -445,18 +445,18 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         sequences are provided."""
         start_time = time.perf_counter()
         inputs = self.prepare_input(execute_model_req)
-        self.pLogger.log_prepare_worker_input_time(time.perf_counter() - start_time)
         if inputs is None:
             return None
 
         model_input, worker_input, kwargs = inputs
+        self.pLogger.log_prepare_worker_input_time(worker_input.virtual_engine, time.perf_counter() - start_time)
         num_steps = worker_input.num_steps
         if (execute_model_req is not None and execute_model_req.spec_step_idx):
             kwargs["spec_step_idx"] = execute_model_req.spec_step_idx
 
         start_time1 = time.perf_counter()
         self.execute_worker(worker_input)
-        self.pLogger.log_execute_worker_time(time.perf_counter() - start_time1)
+        self.pLogger.log_execute_worker_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
 
         # If there is no input, we don't need to execute the model.
         if worker_input.num_seq_groups == 0:
@@ -482,7 +482,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             num_steps=num_steps,
             **kwargs,
         )
-        self.pLogger.log_execute_model_time(time.perf_counter() - start_time1)
+        self.pLogger.log_execute_model_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
 
         model_execute_time = time.perf_counter() - start_time
         if not get_pp_group().is_last_rank:
@@ -521,31 +521,34 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         start_time = time.perf_counter()
         worker_input: WorkerInput = self.prepare_worker_input(
             execute_model_req=execute_model_req)
-        self.pLogger.log_prepare_worker_input_time(time.perf_counter() - start_time)
+        self.pLogger.log_prepare_worker_input_time(worker_input.virtual_engine, time.perf_counter() - start_time)
         
         start_time = time.perf_counter()
         model_input: ModelRunnerInputBase = (
             self.model_runner.prepare_model_input(
                 execute_model_req.seq_group_metadata_list))
-        self.pLogger.log_prepare_model_input_time(time.perf_counter() - start_time)
+        self.pLogger.log_prepare_model_input_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
         start_time = time.perf_counter()
         self.execute_worker(worker_input)
-        self.pLogger.log_execute_worker_time(time.perf_counter() - start_time)
+        self.pLogger.log_execute_worker_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
         # If there is no input, we don't need to execute the model.
         if worker_input.num_seq_groups == 0:
             return []
 
         kwargs = extract_previous_hidden_states(execute_model_req)
-
-        return self.model_runner.execute_model(
-            model_input=model_input,
-            kv_caches=self.kv_cache[worker_input.virtual_engine]
-            if self.kv_cache is not None else None,
-            intermediate_tensors=intermediate_tensors,
-            **kwargs,
-        )
+        try:
+            start_time = time.perf_counter()
+            return self.model_runner.execute_model(
+                model_input=model_input,
+                kv_caches=self.kv_cache[worker_input.virtual_engine]
+                if self.kv_cache is not None else None,
+                intermediate_tensors=intermediate_tensors,
+                **kwargs,
+            )
+        finally:
+            self.pLogger.log_execute_model_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
 
 class WorkerWrapperBase:

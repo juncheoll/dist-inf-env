@@ -34,7 +34,8 @@ class PeriodicLogger:
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
-        self.prepare_input_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.prepare_model_input_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.prepare_worker_input_times_list = [[] for i in range(pipeline_parallel_size)]
         self.execute_model_times_list = [[] for i in range(pipeline_parallel_size)]
         self.execute_worker_times_list = [[] for i in range(pipeline_parallel_size)]
 
@@ -46,18 +47,30 @@ class PeriodicLogger:
     def log_execute_worker_time(self, virtual_engine: int, execute_time: float):
         self.execute_worker_times_list[virtual_engine].append(execute_time)
 
-    def log_prepare_input_time(self, virtual_engine: int, execute_time: float):
-        self.prepare_input_times_list[virtual_engine].append(execute_time)
+    def log_prepare_model_input_time(self, virtual_engine: int, execute_time: float):
+        self.prepare_model_input_times_list[virtual_engine].append(execute_time)
+
+    def log_prepare_worker_input_time(self, virtual_engine: int, execute_time: float):
+        self.prepare_worker_input_times_list[virtual_engine].append(execute_time)
 
     def _run(self):
         while not self._stop_event.is_set():
             start_time = time.time()
 
             try:
-                virtual_engines = " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times) if execute_times else 1):.5f}" for i, execute_times in enumerate(self.execute_model_times_list)]
+                virtual_engines = "\\\nprepare_worker_input\\\n" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(prepare_worker_input_times)/len(prepare_worker_input_times) if prepare_worker_input_times else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
                 )
-                logger.info(f"execute time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+                virtual_engines += "\\\nprepare_model_input\\\n" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(prepare_model_input_times)/len(prepare_model_input_times) if prepare_model_input_times else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
+                )
+                virtual_engines += "\\\nexecute_worker\\\n" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(execute_worker_times)/len(execute_worker_times) if execute_worker_times else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
+                )
+                virtual_engines += "\\\nexecute_model\\\n" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(execute_model_times)/len(execute_model_times) if execute_model_times else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
+                )
+                logger.info(f"worker in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 
             except Exception as e:
                 logger.info(f'**** error! : {e}')
@@ -501,13 +514,20 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         assert execute_model_req is not None, (
             "_execute_model_spmd() requires each worker to take in an "
             "ExecuteModelRequest")
+        start_time = time.perf_counter()
         worker_input: WorkerInput = self.prepare_worker_input(
             execute_model_req=execute_model_req)
+        self.pLogger.log_prepare_worker_input_time(time.perf_counter() - start_time)
+        
+        start_time = time.perf_counter()
         model_input: ModelRunnerInputBase = (
             self.model_runner.prepare_model_input(
                 execute_model_req.seq_group_metadata_list))
+        self.pLogger.log_prepare_model_input_time(time.perf_counter() - start_time)
 
+        start_time = time.perf_counter()
         self.execute_worker(worker_input)
+        self.pLogger.log_execute_worker_time(time.perf_counter() - start_time)
 
         # If there is no input, we don't need to execute the model.
         if worker_input.num_seq_groups == 0:
@@ -515,13 +535,16 @@ class LocalOrDistributedWorkerBase(WorkerBase):
 
         kwargs = extract_previous_hidden_states(execute_model_req)
 
-        return self.model_runner.execute_model(
+        start_time = time.perf_counter()
+        outputs = self.model_runner.execute_model(
             model_input=model_input,
             kv_caches=self.kv_cache[worker_input.virtual_engine]
             if self.kv_cache is not None else None,
             intermediate_tensors=intermediate_tensors,
             **kwargs,
         )
+        self.pLogger.log_execute_model_time(time.perf_counter() - start_time)
+        return outputs
 
 
 class WorkerWrapperBase:

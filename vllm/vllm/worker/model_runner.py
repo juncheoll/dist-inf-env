@@ -102,7 +102,7 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
-                virtual_engines = " \\\n".join(
+                virtual_engines = "\\\nforward_time" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times) if forward_times else 1):.5f} / {len(forward_times)}" for i, forward_times in enumerate(self.forward_times_list)]
                 )
                 if get_pp_group().is_last_rank:
@@ -112,7 +112,7 @@ class PeriodicLogger:
                     virtual_engines += " \\\nsampling times\\\n" + " \\\n".join(
                         [f"virtual_engine {i} : {(sum(sampling_times)/len(sampling_times) if sampling_times else 1):.5f} / {len(sampling_times)}" for i, sampling_times in enumerate(self.sampling_times_list)]
                     )
-                logger.info(f"forward time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+                logger.info(f"runner in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 
             except Exception as e:
                 logger.info(f'**** error! : {e}')

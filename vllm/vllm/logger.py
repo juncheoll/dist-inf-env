@@ -21,7 +21,7 @@ VLLM_LOGGING_PREFIX = envs.VLLM_LOGGING_PREFIX
 
 _FORMAT = (f"{VLLM_LOGGING_PREFIX}%(levelname)s %(asctime)s "
            "%(filename)s:%(lineno)d] %(message)s")
-_DATE_FORMAT = "%m-%d %H:%M:%S"
+_DATE_FORMAT = "%m-%d %H:%M:%S.%f"
 
 DEFAULT_LOGGING_CONFIG = {
     "formatters": {
@@ -30,6 +30,10 @@ DEFAULT_LOGGING_CONFIG = {
             "datefmt": _DATE_FORMAT,
             "format": _FORMAT,
         },
+        "my_json": {
+            "class": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)%(levelname)%(name)%(message)"
+        }
     },
     "handlers": {
         "vllm": {
@@ -38,10 +42,16 @@ DEFAULT_LOGGING_CONFIG = {
             "level": VLLM_LOGGING_LEVEL,
             "stream": "ext://sys.stdout",
         },
+        "my_file": {
+            "class": "logging.FileHandler",
+            "formatter": "vllm",
+            "level": VLLM_LOGGING_LEVEL,
+            "filename": "/dist-inf-env/log.log"
+        }
     },
     "loggers": {
         "vllm": {
-            "handlers": ["vllm"],
+            "handlers": ["vllm", "my_file"],
             "level": "DEBUG",
             "propagate": False,
         },

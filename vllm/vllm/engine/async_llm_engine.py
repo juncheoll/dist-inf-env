@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 import asyncio
 import copy
 import time
@@ -18,9 +20,7 @@ from vllm.engine.async_timeout import asyncio_timeout
 from vllm.engine.llm_engine import LLMEngine, SchedulerOutputState
 from vllm.engine.metrics_types import StatLoggerBase
 from vllm.engine.protocol import EngineClient
-from vllm.executor.executor_base import ExecutorAsyncBase
-from vllm.executor.gpu_executor import GPUExecutorAsync
-from vllm.executor.ray_utils import initialize_ray_cluster
+from vllm.executor.executor_base import ExecutorBase
 from vllm.inputs import PromptType
 from vllm.inputs.preprocess import InputPreprocessor
 from vllm.logger import init_logger
@@ -259,89 +259,16 @@ class RequestTracker:
     def has_new_requests(self):
         return not self._new_requests.empty()
 
-import threading
-import time
-
-class PeriodicLogger:
-    def __init__(self, interval: float = 3, pipeline_parallel_size: int = 1):
-        self.interval = interval
-        self._stop_event = threading.Event()
-        self._thread = threading.Thread(target=self._run, daemon=True)
-
-        self.start_schedule_times = [0 for i in range(pipeline_parallel_size)]
-        self.elapsed_schedule_times = [0 for i in range(pipeline_parallel_size)]
-        self.avg_schedule_times = [0 for i in range(pipeline_parallel_size)]
-
-        self.start_execute_times = [0 for i in range(pipeline_parallel_size)]
-        self.elapsed_execute_times = [0 for i in range(pipeline_parallel_size)]
-        self.avg_execute_times = [0 for i in range(pipeline_parallel_size)]
-
-        self.start_proc_output_times = [0 for i in range(pipeline_parallel_size)]
-        self.elapsed_proc_output_times = [0 for i in range(pipeline_parallel_size)]
-        self.avg_proc_output_times = [0 for i in range(pipeline_parallel_size)]
-
-        self._thread.start()
-
-    def _run(self):
-        while not self._stop_event.is_set():
-            start_time = time.time()
-
-            try:
-                self.cacul()
-                logger.info(f"avg_elapsed_time logging... \
-                            avg_schedule_time : {self.average(self.avg_schedule_times)} \
-                            avg_execute_time : {self.average(self.avg_execute_times)} \
-                            avg_proc_output_time : {self.average(self.avg_proc_output_times)}")
-            except Exception as e:
-                logger.info(f"*** error! : {e}")
-
-            elapsed_time = time.time() - start_time
-            time_to_sleep = max(0, self.interval - elapsed_time)
-            time.sleep(time_to_sleep)
-
-    def average(self, nums):
-        vaild_nums = [num for num in nums if num is not None]
-        return sum(vaild_nums) / len(vaild_nums) if vaild_nums else 0
-
-    def start_log_schedule(self, virtual_engine: int):
-        self.start_schedule_times[virtual_engine] = time.time()
-    
-    def end_log_schedule(self, virtual_engine: int):
-        self.elapsed_schedule_times[virtual_engine] = time.time() - self.start_schedule_times[virtual_engine]
-        
-    def start_log_execute(self, virtual_engine: int):
-        self.start_execute_times[virtual_engine] = time.time()
-    
-    def end_log_execute(self, virtual_engine: int):
-        self.elapsed_execute_times[virtual_engine] = time.time() - self.start_execute_times[virtual_engine]
-
-    def start_log_proc_output(self, virtual_engine: int):
-        self.start_proc_output_times[virtual_engine] = time.time()
-
-    def end_log_proc_output(self, virtual_engine: int):
-        self.elapsed_proc_output_times[virtual_engine] = time.time() - self.start_proc_output_times[virtual_engine]
-
-    def cacul(self):
-        for i in range(len(self.avg_schedule_times)):
-            self.avg_schedule_times[i] = (self.avg_schedule_times[i] + self.elapsed_schedule_times[i]) / 2
-            self.avg_execute_times[i] = (self.avg_execute_times[i] + self.elapsed_execute_times[i]) / 2
-            self.avg_proc_output_times[i] = (self.avg_proc_output_times[i] + self.elapsed_proc_output_times[i]) / 2
-
-    def stop(self):
-        self._stop_event.stop()
-        self._thread.join()
 
 class _AsyncLLMEngine(LLMEngine):
     """Extension of LLMEngine to add async methods."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pLogger = PeriodicLogger(pipeline_parallel_size=6)
 
     async def step_async(
         self, virtual_engine: int
     ) -> List[Union[RequestOutput, PoolingRequestOutput]]:
-        #logger.info(f"***my log : run _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")
         """Performs one decoding iteration and returns newly generated results.
         The workers are ran asynchronously if possible.
 
@@ -353,18 +280,15 @@ class _AsyncLLMEngine(LLMEngine):
         """
         # these are cached outputs from previous iterations. None if on first
         # iteration
-        #time.sleep(1)
         cached_outputs = self.cached_scheduler_outputs[virtual_engine]
         seq_group_metadata_list = cached_outputs.seq_group_metadata_list
         scheduler_outputs = cached_outputs.scheduler_outputs
         allow_async_output_proc = cached_outputs.allow_async_output_proc
 
         ctx = self.scheduler_contexts[virtual_engine]
-    
+
         # Clear outputs for each new scheduler iteration
         ctx.request_outputs.clear()
-
-        self.pLogger.start_log_schedule(virtual_engine)
 
         # skip the scheduler if there are any remaining steps in the seq groups.
         # This ensures that the scheduler is only called again when the current
@@ -375,7 +299,7 @@ class _AsyncLLMEngine(LLMEngine):
             (seq_group_metadata_list, scheduler_outputs,
              allow_async_output_proc
              ) = self.scheduler[virtual_engine].schedule()
-            
+
             ctx.seq_group_metadata_list = seq_group_metadata_list
             ctx.scheduler_outputs = scheduler_outputs
 
@@ -399,10 +323,8 @@ class _AsyncLLMEngine(LLMEngine):
         assert seq_group_metadata_list is not None
         assert scheduler_outputs is not None
 
-        self.pLogger.end_log_schedule(virtual_engine)
-
         if not scheduler_outputs.is_empty():
-            #logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
+
             # Check if we have a cached last_output from the previous iteration.
             # For supporting PP this is probably the best way to pass the
             # sampled_token_ids, as a separate broadcast over all the PP stages
@@ -426,21 +348,20 @@ class _AsyncLLMEngine(LLMEngine):
             if allow_async_output_proc:
                 execute_model_req.async_callback = self.async_callbacks[
                     virtual_engine]
-            self.pLogger.start_log_execute(virtual_engine)
+
             # Execute the model.
             outputs = await self.model_executor.execute_model_async(
                 execute_model_req)
-            self.pLogger.end_log_execute(virtual_engine)
+
             # we need to do this here so that last step's sampled_token_ids can
             # be passed to the next iteration for PP.
             if self.scheduler_config.is_multi_step:
                 self._update_cached_scheduler_output(virtual_engine, outputs)
         else:
-            #logger.info("****my log : scheduler_outputs IS empty at step_async()****")
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             outputs = []
-        self.pLogger.start_log_proc_output(virtual_engine)
+
         # Finish the current step for all the sequence groups.
         if self.scheduler_config.is_multi_step:
             for seq_group in seq_group_metadata_list:
@@ -491,150 +412,7 @@ class _AsyncLLMEngine(LLMEngine):
             if len(ctx.output_queue) > 0:
                 self._process_model_outputs(ctx=ctx)
             assert len(ctx.output_queue) == 0
-        self.pLogger.end_log_proc_output(virtual_engine)
-        return ctx.request_outputs
-    
-    async def step_async_with_async_schedule(
-        self, virtual_engine: int
-    ) -> List[Union[RequestOutput, PoolingRequestOutput]]:
-        cached_outputs = self.cached_scheduler_outputs[virtual_engine]
-        seq_group_metadata_list = cached_outputs.seq_group_metadata_list
-        scheduler_outputs = cached_outputs.scheduler_outputs
-        allow_async_output_proc = cached_outputs.allow_async_output_proc
 
-        ctx = self.scheduler_contexts[virtual_engine]
-    
-        # Clear outputs for each new scheduler iteration
-        ctx.request_outputs.clear()
-
-        self.pLogger.start_log_schedule(virtual_engine)
-
-        # skip the scheduler if there are any remaining steps in the seq groups.
-        # This ensures that the scheduler is only called again when the current
-        # batch has completed.
-        if not self._has_remaining_steps(seq_group_metadata_list):
-
-            # Schedule iteration
-            (seq_group_metadata_list, scheduler_outputs,
-             allow_async_output_proc
-             ) = self.scheduler[virtual_engine].schedule()
-            
-            ctx.seq_group_metadata_list = seq_group_metadata_list
-            ctx.scheduler_outputs = scheduler_outputs
-
-            finished_requests_ids = self.scheduler[
-                virtual_engine].get_and_reset_finished_requests_ids()
-
-            # Maybe switch from async mode to sync mode
-            if not allow_async_output_proc and len(ctx.output_queue) > 0:
-                self._process_model_outputs(ctx=ctx)
-
-            if (self.scheduler_config.is_multi_step
-                    and scheduler_outputs.num_lookahead_slots > 0):
-                # cache the scheduler outputs for the next iteration if we have
-                # lookahead slots
-                self._cache_scheduler_outputs_for_multi_step(
-                    virtual_engine, seq_group_metadata_list, scheduler_outputs,
-                    allow_async_output_proc)
-        else:
-            finished_requests_ids = list()
-
-        assert seq_group_metadata_list is not None
-        assert scheduler_outputs is not None
-
-        self.pLogger.end_log_schedule(virtual_engine)
-
-        if not scheduler_outputs.is_empty():
-            #logger.info("****my log : scheduler_outputs is NOT empty at step_async()****")
-            # Check if we have a cached last_output from the previous iteration.
-            # For supporting PP this is probably the best way to pass the
-            # sampled_token_ids, as a separate broadcast over all the PP stages
-            # will cause one virtual engine's microbatch to block the pipeline.
-            last_sampled_token_ids = \
-                self._get_last_sampled_token_ids(virtual_engine)
-
-            execute_model_req = ExecuteModelRequest(
-                seq_group_metadata_list=seq_group_metadata_list,
-                blocks_to_swap_in=scheduler_outputs.blocks_to_swap_in,
-                blocks_to_swap_out=scheduler_outputs.blocks_to_swap_out,
-                blocks_to_copy=scheduler_outputs.blocks_to_copy,
-                virtual_engine=virtual_engine,
-                num_lookahead_slots=scheduler_outputs.num_lookahead_slots,
-                running_queue_size=scheduler_outputs.running_queue_size,
-                finished_requests_ids=finished_requests_ids,
-                # We use ExecuteModelRequest to pass the last sampled_token_ids
-                # to each of the non-last PP stages for in-place prepare_input.
-                last_sampled_token_ids=last_sampled_token_ids)
-
-            if allow_async_output_proc:
-                execute_model_req.async_callback = self.async_callbacks[
-                    virtual_engine]
-            self.pLogger.start_log_execute(virtual_engine)
-            # Execute the model.
-            outputs = await self.model_executor.execute_model_async(
-                execute_model_req)
-            self.pLogger.end_log_execute(virtual_engine)
-            # we need to do this here so that last step's sampled_token_ids can
-            # be passed to the next iteration for PP.
-            if self.scheduler_config.is_multi_step:
-                self._update_cached_scheduler_output(virtual_engine, outputs)
-        else:
-            #logger.info("****my log : scheduler_outputs IS empty at step_async()****")
-            if len(ctx.output_queue) > 0:
-                self._process_model_outputs(ctx=ctx)
-            outputs = []
-        self.pLogger.start_log_proc_output(virtual_engine)
-        # Finish the current step for all the sequence groups.
-        if self.scheduler_config.is_multi_step:
-            for seq_group in seq_group_metadata_list:
-                seq_group.finish_step()
-
-        if not self._has_remaining_steps(seq_group_metadata_list):
-            # Clear the cache if we have finished all the steps
-            if self.scheduler_config.is_multi_step:
-                self.cached_scheduler_outputs[
-                    virtual_engine] = SchedulerOutputState()
-
-            # is_first_step_output is True only when the num_steps of all
-            # the sequences are 1. When the num_steps > 1,
-            # multi_step_model_runner does the first-step output append.
-            is_first_step_output: bool = False if not seq_group_metadata_list \
-                else seq_group_metadata_list[0].state.num_steps == 1
-
-            ctx.append_output(outputs=outputs,
-                              seq_group_metadata_list=seq_group_metadata_list,
-                              scheduler_outputs=scheduler_outputs,
-                              is_async=allow_async_output_proc,
-                              is_last_step=True,
-                              is_first_step_output=is_first_step_output)
-
-            if outputs and allow_async_output_proc:
-                assert len(
-                    outputs
-                ) == 1, "Async postprocessor expects only a single output set"
-                self._advance_to_next_step(
-                    outputs[0], seq_group_metadata_list,
-                    scheduler_outputs.scheduled_seq_groups)
-
-            if not allow_async_output_proc:
-                self._process_model_outputs(ctx=ctx)
-
-                # Log stats.
-                self.do_log_stats(scheduler_outputs, outputs)
-
-                # Tracing
-                self.do_tracing(scheduler_outputs)
-
-        else:
-            # Multi-step case
-            return ctx.request_outputs
-
-        if not self.has_unfinished_requests():
-            # Drain async postprocessor (if exists)
-            if len(ctx.output_queue) > 0:
-                self._process_model_outputs(ctx=ctx)
-            assert len(ctx.output_queue) == 0
-        self.pLogger.end_log_proc_output(virtual_engine)
         return ctx.request_outputs
 
     async def stop_remote_worker_execution_loop_async(self) -> None:
@@ -842,69 +620,9 @@ class AsyncLLMEngine(EngineClient):
             rt.new_requests_event.set()
 
     @classmethod
-    def _get_executor_cls(
-            cls, engine_config: VllmConfig) -> Type[ExecutorAsyncBase]:
-        distributed_executor_backend = (
-            engine_config.parallel_config.distributed_executor_backend)
-        if isinstance(distributed_executor_backend, type):
-            if not issubclass(distributed_executor_backend, ExecutorAsyncBase):
-                raise TypeError(
-                    "distributed_executor_backend must be a subclass of "
-                    f"ExecutorAsyncBase. Got {distributed_executor_backend}.")
-            executor_class = distributed_executor_backend
-        elif engine_config.device_config.device_type == "neuron":
-            from vllm.executor.neuron_executor import NeuronExecutorAsync
-            executor_class = NeuronExecutorAsync
-        elif engine_config.device_config.device_type == "tpu":
-            if distributed_executor_backend == "ray":
-                from vllm.executor.ray_tpu_executor import RayTPUExecutorAsync
-                executor_class = RayTPUExecutorAsync
-            else:
-                assert distributed_executor_backend is None
-                from vllm.executor.tpu_executor import TPUExecutorAsync
-                executor_class = TPUExecutorAsync
-        elif engine_config.device_config.device_type == "cpu":
-            from vllm.executor.cpu_executor import CPUExecutorAsync
-            executor_class = CPUExecutorAsync
-        elif engine_config.device_config.device_type == "hpu":
-            if distributed_executor_backend == "ray":
-                initialize_ray_cluster(engine_config.parallel_config)
-                from vllm.executor.ray_hpu_executor import RayHPUExecutorAsync
-                executor_class = RayHPUExecutorAsync
-            else:
-                from vllm.executor.hpu_executor import HPUExecutorAsync
-                executor_class = HPUExecutorAsync
-        elif engine_config.device_config.device_type == "openvino":
-            assert distributed_executor_backend is None, (
-                "Distributed execution is not supported with "
-                "the OpenVINO backend.")
-            from vllm.executor.openvino_executor import OpenVINOExecutorAsync
-            executor_class = OpenVINOExecutorAsync
-        elif engine_config.device_config.device_type == "xpu":
-            if distributed_executor_backend is None:
-                from vllm.executor.xpu_executor import XPUExecutorAsync
-                executor_class = XPUExecutorAsync
-            elif distributed_executor_backend == "ray":
-                from vllm.executor.ray_xpu_executor import RayXPUExecutorAsync
-                executor_class = RayXPUExecutorAsync
-            elif distributed_executor_backend == "mp":
-                from vllm.executor.multiproc_xpu_executor import (
-                    MultiprocessingXPUExecutorAsync)
-                executor_class = MultiprocessingXPUExecutorAsync
-            else:
-                raise RuntimeError(
-                    "Not supported distributed execution model on XPU device.")
-        elif distributed_executor_backend == "ray":
-            from vllm.executor.ray_gpu_executor import RayGPUExecutorAsync
-            executor_class = RayGPUExecutorAsync
-        elif distributed_executor_backend == "mp":
-            from vllm.executor.multiproc_gpu_executor import (
-                MultiprocessingGPUExecutorAsync)
-            executor_class = MultiprocessingGPUExecutorAsync
-        else:
-            from vllm.executor.gpu_executor import GPUExecutorAsync
-            executor_class = GPUExecutorAsync
-        return executor_class
+    def _get_executor_cls(cls,
+                          engine_config: VllmConfig) -> Type[ExecutorBase]:
+        return LLMEngine._get_executor_cls(engine_config)
 
     @classmethod
     def from_engine_args(
@@ -921,11 +639,6 @@ class AsyncLLMEngine(EngineClient):
             engine_config = engine_args.create_engine_config(usage_context)
 
         executor_class = cls._get_executor_cls(engine_config)
-        logger.info(f"****my log : used executor class by {executor_class}****")
-
-        if executor_class.uses_ray:
-            initialize_ray_cluster(engine_config.parallel_config)
-            logger.info(f"****my log : success the initialize_ray_cluster****")
 
         # Create the async LLM engine.
         engine = cls(
@@ -1010,7 +723,6 @@ class AsyncLLMEngine(EngineClient):
         self.background_loop = None
 
     async def engine_step(self, virtual_engine: int) -> bool:
-        logger.info(f"***my log : run AsyncLLMEngine.engine_step()(virtual_engine={virtual_engine})****")
         """Kick the engine to process the waiting requests.
 
         Returns True if there are in-progress requests."""
@@ -1021,7 +733,6 @@ class AsyncLLMEngine(EngineClient):
         for new_request in new_requests:
             # Add the request into the vLLM engine's waiting queue.
             try:
-                logger.info(f"***my log : add request (virtual_engine={virtual_engine})****")
                 await self.engine.add_request_async(**new_request)
             except ValueError as e:
                 # TODO: use a vLLM specific error for failed validation
@@ -1035,9 +746,6 @@ class AsyncLLMEngine(EngineClient):
             await self._engine_abort(aborted_requests)
 
         request_outputs = await self.engine.step_async(virtual_engine)
-        #logger.info(f"****my log : complete _AsyncLLMEngine.step_async()(virtual_engine={virtual_engine})****")   
-        if request_outputs:
-            logger.info(f"****my log : request_outputs : {request_outputs}****")     
 
         # Put the outputs into the corresponding streams.
         # If used as a callback, then already invoked inside
@@ -1471,20 +1179,22 @@ class AsyncLLMEngine(EngineClient):
         self.engine.remove_logger(logger_name=logger_name)
 
     async def start_profile(self) -> None:
-        # using type instead of isinstance to check to avoid capturing
-        # inherited classes
-        if type(self.engine.model_executor) == GPUExecutorAsync:  # noqa: E721
-            self.engine.model_executor.start_profile()
-        else:
-            self.engine.model_executor._run_workers("start_profile")
+        self.engine.start_profile()
 
     async def stop_profile(self) -> None:
-        # using type instead of isinstance to check to avoid capturing
-        # inherited classes
-        if type(self.engine.model_executor) == GPUExecutorAsync:  # noqa: E721
-            self.engine.model_executor.stop_profile()
-        else:
-            self.engine.model_executor._run_workers("stop_profile")
+        self.engine.stop_profile()
+
+    async def reset_prefix_cache(self) -> None:
+        self.engine.reset_prefix_cache()
+
+    async def sleep(self, level: int = 1) -> None:
+        self.engine.sleep(level)
+
+    async def wake_up(self) -> None:
+        self.engine.wake_up()
+
+    async def add_lora(self, lora_request: LoRARequest) -> None:
+        self.engine.add_lora(lora_request)
 
 
 # TODO(v1): Remove this class proxy when V1 goes default.

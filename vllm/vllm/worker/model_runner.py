@@ -74,6 +74,53 @@ TModelInputForGPU = TypeVar('TModelInputForGPU', bound="ModelInputForGPU")
 torch._dynamo.config.cache_size_limit = 128
 torch._dynamo.config.accumulated_cache_size_limit = 128
 
+import threading
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.forward_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.compute_logits_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.sampling_times_list = [[] for i in range(pipeline_parallel_size)]
+
+        self._thread.start()
+
+    def log_forward_time(self, virtual_engine: int, forward_time: float):
+        self.forward_times_list[virtual_engine].append(forward_time)
+
+    def log_compute_logits_time(self, virtual_engine: int, compute_logits_time: float):
+        self.compute_logits_times_list[virtual_engine].append(compute_logits_time)
+
+    def log_sampling_time(self, virtual_engine: int, sampling_time: float):
+        self.sampling_times_list[virtual_engine].append(sampling_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                virtual_engines = " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times) if forward_times else 1):.5f} / {len(forward_times)}" for i, forward_times in enumerate(self.forward_times_list)]
+                )
+                if get_pp_group().is_last_rank:
+                    virtual_engines += " \\\ncompute logits times\\\n" + " \\\n".join(
+                        [f"virtual_engine {i} : {(sum(compute_logits_times)/len(compute_logits_times) if compute_logits_times else 1):.5f} / {len(compute_logits_times)}" for i, compute_logits_times in enumerate(self.compute_logits_times_list)]
+                    )
+                    virtual_engines += " \\\nsampling times\\\n" + " \\\n".join(
+                        [f"virtual_engine {i} : {(sum(sampling_times)/len(sampling_times) if sampling_times else 1):.5f} / {len(sampling_times)}" for i, sampling_times in enumerate(self.sampling_times_list)]
+                    )
+                logger.info(f"forward time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
 
 @dataclass(frozen=True)
 class ModelInputForGPU(ModelRunnerInputBase):
@@ -1106,6 +1153,8 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
             # multi-step model runner does not have `_builder_cls`
             self.builder = self._builder_cls(weakref.proxy(self))
 
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=self.parallel_config.pipeline_parallel_size)
+
     def load_model(self) -> None:
         logger.info("Starting to load model %s...", self.model_config.model)
         with DeviceMemoryProfiler(self.device) as m:
@@ -1718,6 +1767,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             model_forward_end = torch.cuda.Event(enable_timing=True)
             model_forward_start.record()
 
+        start_time_forward = time.perf_counter()
         if not bypass_model_exec:
             with set_forward_context(model_input.attn_metadata,
                                      self.vllm_config, virtual_engine):
@@ -1737,9 +1787,12 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 and self.observability_config.collect_model_forward_time):
             model_forward_end.record()
 
+        
+
         # Sending KV cache in distributed KV cache transfer setting
         # NOTE: the send operation is non-blocking
         if self.need_send_kv(model_input, kv_caches):
+            self.pLogger.info("called need_send_kv")
             get_kv_transfer_group().send_kv_caches_and_hidden_states(
                 # model_executable is used to know which layer the current
                 # worker is working on, so that we can send KV for only those
@@ -1752,6 +1805,8 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         # Compute the logits in the last pipeline stage.
         if not get_pp_group().is_last_rank:
+            if kv_caches[0].numel() != 0:
+                self.pLogger.log_forward_time(model_input.virtual_engine, time.perf_counter() - start_time_forward)
             if (self.is_driver_worker
                     and hidden_or_intermediate_states is not None
                     and isinstance(hidden_or_intermediate_states,
@@ -1769,20 +1824,28 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                     torch.tensor(model_forward_time + orig_model_forward_time))
             return hidden_or_intermediate_states
 
+        start_time_logit = time.perf_counter()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
+        self.pLogger.log_compute_logits_time(time.perf_counter() - start_time_logit)
 
         if not self.is_driver_worker:
             return []
 
+        
         if model_input.async_callback is not None:
             model_input.async_callback()
 
+        start_time_sampling = time.perf_counter()
         # Sample the next token.
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
+        self.pLogger.log_sampling_time(virtual_engine, time.perf_counter() - start_time_sampling)
+        if kv_caches[0].numel() != 0:
+                self.pLogger.log_forward_time(model_input.virtual_engine, time.perf_counter() - start_time_forward)
+
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
                 and output is not None):

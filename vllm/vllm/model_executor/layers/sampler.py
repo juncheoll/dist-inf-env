@@ -32,6 +32,72 @@ if envs.VLLM_USE_FLASHINFER_SAMPLER and find_spec("flashinfer"):
 else:
     flashinfer_top_k_top_p_sampling = None
 
+from vllm.logger import init_logger
+logger = init_logger(__name__)
+
+import time
+import threading
+
+class PeriodicLogger:
+    def __init__(self, interval: float = 10):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.softmax_times = []
+        self.log_softmax_times = []
+        self.sampling_times = []
+        self.pythonize_times = []
+
+        self.cpu_times = []
+
+        self._thread.start()
+
+    def log_softmax_time(self, execute_time: float):
+        self.softmax_times.append(execute_time)
+
+    def log_log_softmax_time(self, execute_time: float):
+        self.log_softmax_times.append(execute_time)
+
+    def log_sampling_time(self, execute_time: float):
+        self.sampling_times.append(execute_time)
+
+    def log_pythonize_time(self, execute_time: float):
+        self.pythonize_times.append(execute_time)
+
+    def log_cpu_time(self, execute_time: float):
+        self.cpu_times.append(execute_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                average_softmax_time = (sum(self.softmax_times)/len(self.softmax_times)) if self.softmax_times else 0.0
+                average_log_softmax_time = (sum(self.log_softmax_times)/len(self.log_softmax_times)) if self.log_softmax_times else 0.0
+                average_sampling_time = (sum(self.sampling_times)/len(self.sampling_times)) if self.sampling_times else 0.0
+                average_pythonize_time = (sum(self.pythonize_times)/len(self.pythonize_times)) if self.pythonize_times else 0.0
+
+                average_cpu_time = (sum(self.cpu_times)/len(self.cpu_times)) if self.cpu_times else 0.0
+
+                log = (
+                    f"softmax_time : {average_softmax_time:.7f} / {len(self.softmax_times)}\n"
+                    f"log_softmax_time : {average_log_softmax_time:.7f} / {len(self.log_softmax_times)}\n"
+                    f"sampling_time : {average_sampling_time:.7f} / {len(self.sampling_times)}\n"
+                    f"pythonize_time : {average_pythonize_time:.7f} / {len(self.pythonize_times)}\n"
+                    f"cpu_time : {average_cpu_time:.7f} / {len(self.cpu_times)}"
+                )
+
+                logger.info(f"sampling time... \\\n{log}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
+
 
 def get_sampler() -> torch.nn.Module:
     if envs.VLLM_USE_V1:
@@ -157,6 +223,7 @@ class SamplerOutput(
             f"spec_decode_worker_metrics={self.spec_decode_worker_metrics})")
 
 
+pLogger = PeriodicLogger()
 class Sampler(nn.Module):
     """Samples the next tokens from the model's outputs.
 
@@ -254,7 +321,7 @@ class Sampler(nn.Module):
         do_penalties = self._do_penalties
         do_top_p_top_k = self._do_top_p_top_k
         do_min_p = self._do_min_p
-
+    
         logits = _apply_min_tokens_penalty(logits, sampling_metadata)
 
         # Apply presence and frequency penalties.
@@ -279,11 +346,17 @@ class Sampler(nn.Module):
 
         # We use float32 for probabilities and log probabilities.
         # Compute the probabilities.
+        start_time = time.perf_counter()
         probs = torch.softmax(logits, dim=-1, dtype=torch.float)
+        torch.cuda.synchronize()
+        pLogger.log_softmax_time(time.perf_counter() - start_time)
         # Compute the log probabilities.
+        start_time = time.perf_counter()
         logprobs = torch.log_softmax(logits, dim=-1, dtype=torch.float)
+        pLogger.log_log_softmax_time(time.perf_counter() -start_time)
 
         # Sample the next tokens.
+        start_time = time.perf_counter()
         maybe_deferred_sample_results, maybe_sampled_tokens_tensor = _sample(
             probs,
             logprobs,
@@ -292,6 +365,7 @@ class Sampler(nn.Module):
             include_gpu_probs_tensor=self.include_gpu_probs_tensor,
             modify_greedy_probs=self._should_modify_greedy_probs_inplace,
         )
+        pLogger.log_sampling_time(time.perf_counter() - start_time)
 
         if self.include_gpu_probs_tensor:
             # Since we will defer sampler result Pythonization,
@@ -482,7 +556,9 @@ def _random_sample(
         seq_group has do_sample=False, tuple contains ([], [])
     """
     # Find the maximum n value of the prompt phase requests.
+    start_time = time.perf_counter()
     random_samples = random_samples.cpu()
+    pLogger.log_cpu_time(time.perf_counter() - start_time)
     sample_idx = 0
     results: SampleResultType = []
     for seq_group in selected_seq_groups:
@@ -591,7 +667,7 @@ def get_pythonized_sample_results(
     Returns:
       Pythonized sampler results
     '''
-
+    start_time = time.perf_counter()
     (
         sample_metadata,
         sampling_metadata,
@@ -617,6 +693,7 @@ def get_pythonized_sample_results(
                                             multinomial_samples[sampling_type])
         sample_results_dict.update(zip(seq_group_id, sample_results))
 
+    pLogger.log_pythonize_time(time.perf_counter() - start_time)
     return [
         sample_results_dict.get(i, ([], []))
         for i in range(len(sampling_metadata.seq_groups))

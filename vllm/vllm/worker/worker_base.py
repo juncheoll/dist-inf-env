@@ -27,6 +27,45 @@ from vllm.worker.model_runner_base import (BroadcastableModelInput,
 
 logger = init_logger(__name__)
 
+import threading
+class PeriodicLogger:
+    def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+        self.prepare_input_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.execute_model_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.execute_worker_times_list = [[] for i in range(pipeline_parallel_size)]
+
+        self._thread.start()
+
+    def log_execute_model_time(self, virtual_engine: int, execute_time: float):
+        self.execute_model_times_list[virtual_engine].append(execute_time)
+
+    def log_execute_worker_time(self, virtual_engine: int, execute_time: float):
+        self.execute_worker_times_list[virtual_engine].append(execute_time)
+
+    def log_prepare_input_time(self, virtual_engine: int, execute_time: float):
+        self.prepare_input_times_list[virtual_engine].append(execute_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                virtual_engines = " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(execute_times)/len(execute_times) if execute_times else 1):.5f}" for i, execute_times in enumerate(self.execute_model_times_list)]
+                )
+                logger.info(f"execute time in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
 
 @warn_for_unimplemented_methods
 class WorkerBase:
@@ -54,6 +93,8 @@ class WorkerBase:
         self.compilation_config = vllm_config.compilation_config
         from vllm.platforms import current_platform
         self.current_platform = current_platform
+        
+        self.pLogger = PeriodicLogger(pipeline_parallel_size=self.parallel_config.pipeline_parallel_size)
 
     def init_device(self) -> None:
         """Initialize device state, such as loading the model or other on-device

@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 
 import vllm.envs as envs
+from vllm.distributed import get_pp_group
 from vllm.model_executor.layers.utils import apply_penalties
 from vllm.model_executor.sampling_metadata import (SamplingMetadata,
                                                    SamplingTensors,
@@ -222,8 +223,12 @@ class SamplerOutput(
             f"sampled_token_ids={sampled_token_ids_repr}, "
             f"spec_decode_worker_metrics={self.spec_decode_worker_metrics})")
 
+pLogger = None
+def create_PLogger():
+    global pLogger
+    pLogger = PeriodicLogger()
 
-pLogger = PeriodicLogger()
+
 class Sampler(nn.Module):
     """Samples the next tokens from the model's outputs.
 
@@ -253,6 +258,8 @@ class Sampler(nn.Module):
         # speculative decoding.
         self.include_gpu_probs_tensor = False
         self.should_modify_greedy_probs_inplace = False
+        create_PLogger()
+
 
     def _init_sampling_tensors(
         self,

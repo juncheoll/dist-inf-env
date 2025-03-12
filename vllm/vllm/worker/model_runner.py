@@ -1831,9 +1831,6 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                                            model_input.sampling_metadata)
         if log:
             compute_logits_end.record()
-            compute_logits_end.synchronize()
-            compute_logits_time = compute_logits_start.elapsed_time(compute_logits_end)
-            self.pLogger.log_compute_logits_time(virtual_engine, compute_logits_time)
 
         if not self.is_driver_worker:
             return []
@@ -1851,15 +1848,15 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         )
         if log:
             sampling_end.record()
-            sampling_end.synchronize()
-            sampling_time = sampling_start.elapsed_time(sampling_end)
-            self.pLogger.log_sampling_time(virtual_engine, sampling_time)
+            
 
 
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
                 and output is not None) or log:
             model_forward_end.synchronize()
+            compute_logits_end.synchronize()
+            sampling_end.synchronize()
             model_forward_time = model_forward_start.elapsed_time(
                 model_forward_end)
             orig_model_forward_time = 0.0
@@ -1872,7 +1869,13 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             # the communication time as well.
             output.model_forward_time = (orig_model_forward_time +
                                          model_forward_time)
+            
+            compute_logits_time = compute_logits_start.elapsed_time(compute_logits_end)
+            self.pLogger.log_compute_logits_time(virtual_engine, compute_logits_time)
+            sampling_time = sampling_start.elapsed_time(sampling_end)
+            self.pLogger.log_sampling_time(virtual_engine, sampling_time)
             self.pLogger.log_forward_time(virtual_engine, model_forward_time)
+            
 
         if self.return_hidden_states:
             # we only need to pass hidden states of most recent token

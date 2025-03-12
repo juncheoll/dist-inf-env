@@ -444,8 +444,8 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         """Executes at least one model step on the given sequences, unless no
         sequences are provided."""
         start_time = time.perf_counter()
-
         inputs = self.prepare_input(execute_model_req)
+        self.pLogger.log_prepare_worker_input_time(time.perf_counter() - start_time)
         if inputs is None:
             return None
 
@@ -454,7 +454,9 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         if (execute_model_req is not None and execute_model_req.spec_step_idx):
             kwargs["spec_step_idx"] = execute_model_req.spec_step_idx
 
+        start_time1 = time.perf_counter()
         self.execute_worker(worker_input)
+        self.pLogger.log_execute_worker_time(time.perf_counter() - start_time1)
 
         # If there is no input, we don't need to execute the model.
         if worker_input.num_seq_groups == 0:
@@ -471,6 +473,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 orig_model_execute_time = intermediate_tensors.tensors.get(
                     "model_execute_time", torch.tensor(0)).item()
 
+        start_time1 = time.perf_counter()
         output = self.model_runner.execute_model(
             model_input=model_input,
             kv_caches=self.kv_cache[worker_input.virtual_engine]
@@ -479,6 +482,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             num_steps=num_steps,
             **kwargs,
         )
+        self.pLogger.log_execute_model_time(time.perf_counter() - start_time1)
 
         model_execute_time = time.perf_counter() - start_time
         if not get_pp_group().is_last_rank:

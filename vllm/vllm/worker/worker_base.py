@@ -536,15 +536,16 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         kwargs = extract_previous_hidden_states(execute_model_req)
 
         start_time = time.perf_counter()
-        outputs = self.model_runner.execute_model(
-            model_input=model_input,
-            kv_caches=self.kv_cache[worker_input.virtual_engine]
-            if self.kv_cache is not None else None,
-            intermediate_tensors=intermediate_tensors,
-            **kwargs,
-        )
-        self.pLogger.log_execute_model_time(time.perf_counter() - start_time)
-        return outputs
+        try:
+            return self.model_runner.execute_model(
+                model_input=model_input,
+                kv_caches=self.kv_cache[worker_input.virtual_engine]
+                if self.kv_cache is not None else None,
+                intermediate_tensors=intermediate_tensors,
+                **kwargs,
+            )
+        finally:
+            self.pLogger.log_execute_model_time(time.perf_counter() - start_time)
 
 
 class WorkerWrapperBase:

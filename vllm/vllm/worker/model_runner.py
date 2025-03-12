@@ -1805,7 +1805,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         # Compute the logits in the last pipeline stage.
         if not get_pp_group().is_last_rank:
             if kv_caches[0].numel() != 0:
-                self.pLogger.log_forward_time(model_input.virtual_engine, time.perf_counter() - start_time_forward)
+                self.pLogger.log_forward_time(virtual_engine, time.perf_counter() - start_time_forward)
             if (self.is_driver_worker
                     and hidden_or_intermediate_states is not None
                     and isinstance(hidden_or_intermediate_states,
@@ -1826,7 +1826,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         start_time_logit = time.perf_counter()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
-        self.pLogger.log_compute_logits_time(time.perf_counter() - start_time_logit)
+        self.pLogger.log_compute_logits_time(virtual_engine, time.perf_counter() - start_time_logit)
 
         if not self.is_driver_worker:
             return []
@@ -1843,7 +1843,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         )
         self.pLogger.log_sampling_time(virtual_engine, time.perf_counter() - start_time_sampling)
         if kv_caches[0].numel() != 0:
-                self.pLogger.log_forward_time(model_input.virtual_engine, time.perf_counter() - start_time_forward)
+                self.pLogger.log_forward_time(virtual_engine, time.perf_counter() - start_time_forward)
 
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time

@@ -1786,7 +1786,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 )
 
         if (self.observability_config is not None
-                and self.observability_config.collect_model_forward_time):
+                and self.observability_config.collect_model_forward_time) or log:
             model_forward_end.record()
 
         

@@ -75,7 +75,7 @@ torch._dynamo.config.cache_size_limit = 128
 torch._dynamo.config.accumulated_cache_size_limit = 128
 
 import threading
-
+log = True
 class PeriodicLogger:
     def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
         self.interval = interval
@@ -102,7 +102,7 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
-                virtual_engines = "\\\nforward_time" + " \\\n".join(
+                virtual_engines = "\\\nforward_time\\\n" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(forward_times)/len(forward_times) if forward_times else 1):.5f} / {len(forward_times)}" for i, forward_times in enumerate(self.forward_times_list)]
                 )
                 if get_pp_group().is_last_rank:
@@ -1761,12 +1761,15 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if previous_hidden_states is not None:
             model_kwargs["previous_hidden_states"] = previous_hidden_states
         if (self.observability_config is not None
-                and self.observability_config.collect_model_forward_time):
+                and self.observability_config.collect_model_forward_time) or log:
             model_forward_start = torch.cuda.Event(enable_timing=True)
             model_forward_end = torch.cuda.Event(enable_timing=True)
             model_forward_start.record()
+            compute_logits_start = torch.cuda.Event(enable_timing=True)
+            compute_logits_end = torch.cuda.Event(enable_timing=True)
+            sampling_start = torch.cuda.Event(enable_timing=True)
+            sampling_end = torch.cuda.Event(enable_timing=True)
 
-        start_time_forward = time.perf_counter()
         if not bypass_model_exec:
             with set_forward_context(model_input.attn_metadata,
                                      self.vllm_config, virtual_engine):
@@ -1804,14 +1807,12 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         # Compute the logits in the last pipeline stage.
         if not get_pp_group().is_last_rank:
-            if kv_caches[0].numel() != 0:
-                self.pLogger.log_forward_time(virtual_engine, time.perf_counter() - start_time_forward)
             if (self.is_driver_worker
                     and hidden_or_intermediate_states is not None
                     and isinstance(hidden_or_intermediate_states,
                                    IntermediateTensors)
-                    and self.observability_config is not None
-                    and self.observability_config.collect_model_forward_time):
+                    and ((self.observability_config is not None
+                    and self.observability_config.collect_model_forward_time) or log)):
                 model_forward_end.synchronize()
                 model_forward_time = model_forward_start.elapsed_time(
                     model_forward_end)
@@ -1821,12 +1822,18 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                         "model_forward_time", torch.tensor(0.0)).item()
                 hidden_or_intermediate_states.tensors["model_forward_time"] = (
                     torch.tensor(model_forward_time + orig_model_forward_time))
+                self.pLogger.log_forward_time(virtual_engine, model_forward_time)
             return hidden_or_intermediate_states
 
-        start_time_logit = time.perf_counter()
+        if log:
+            compute_logits_start.record()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
-        self.pLogger.log_compute_logits_time(virtual_engine, time.perf_counter() - start_time_logit)
+        if log:
+            compute_logits_end.record()
+            compute_logits_end.synchronize()
+            compute_logits_time = compute_logits_start.elapsed_time(compute_logits_end)
+            self.pLogger.log_compute_logits_time(virtual_engine, compute_logits_time)
 
         if not self.is_driver_worker:
             return []
@@ -1835,19 +1842,23 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if model_input.async_callback is not None:
             model_input.async_callback()
 
-        start_time_sampling = time.perf_counter()
         # Sample the next token.
+        if log:
+            sampling_start.record()
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
-        self.pLogger.log_sampling_time(virtual_engine, time.perf_counter() - start_time_sampling)
-        if kv_caches[0].numel() != 0:
-                self.pLogger.log_forward_time(virtual_engine, time.perf_counter() - start_time_forward)
+        if log:
+            sampling_end.record()
+            sampling_end.synchronize()
+            sampling_time = sampling_start.elapsed_time(sampling_end)
+            self.pLogger.log_sampling_time(virtual_engine, sampling_time)
+
 
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
-                and output is not None):
+                and output is not None) or log:
             model_forward_end.synchronize()
             model_forward_time = model_forward_start.elapsed_time(
                 model_forward_end)
@@ -1861,6 +1872,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             # the communication time as well.
             output.model_forward_time = (orig_model_forward_time +
                                          model_forward_time)
+            self.pLogger.log_forward_time(virtual_engine, model_forward_time)
 
         if self.return_hidden_states:
             # we only need to pass hidden states of most recent token

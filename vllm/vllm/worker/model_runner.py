@@ -1861,8 +1861,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             model_forward_end.synchronize()
             compute_logits_end.synchronize()
             sampling_end.synchronize()
-            model_forward_time = model_forward_start.elapsed_time(
-                model_forward_end)
+            #model_forward_time = model_forward_start.elapsed_time(
+            #    model_forward_end)
+            model_forward_time = time.perf_counter() - start_time
             orig_model_forward_time = 0.0
             if intermediate_tensors is not None:
                 orig_model_forward_time = intermediate_tensors.tensors.get(

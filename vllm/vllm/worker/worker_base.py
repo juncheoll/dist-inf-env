@@ -38,6 +38,7 @@ class PeriodicLogger:
         self.prepare_worker_input_times_list = [[] for i in range(pipeline_parallel_size)]
         self.execute_model_times_list = [[] for i in range(pipeline_parallel_size)]
         self.execute_worker_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.recv_times_list = [[] for i in range(pipeline_parallel_size)]
 
         self._thread.start()
 
@@ -53,6 +54,9 @@ class PeriodicLogger:
     def log_prepare_worker_input_time(self, virtual_engine: int, execute_time: float):
         self.prepare_worker_input_times_list[virtual_engine].append(execute_time)
 
+    def log_recv_time(self, virtual_engine: int, execute_time: float):
+        self.recv_times_list[virtual_engine].append(execute_time)
+
     def _run(self):
         while not self._stop_event.is_set():
             start_time = time.time()
@@ -66,6 +70,9 @@ class PeriodicLogger:
                 )
                 virtual_engines += "\\\nexecute_worker\\\n" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(execute_worker_times)/len(execute_worker_times) if execute_worker_times else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
+                )
+                virtual_engines += "\\\nrecv\\\n" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(recv_times)/len(recv_times) if recv_times else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
                 )
                 virtual_engines += "\\\nexecute_model\\\n" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(execute_model_times)/len(execute_model_times) if execute_model_times else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
@@ -462,6 +469,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
         if worker_input.num_seq_groups == 0:
             return []
 
+        start_time1 = time.perf_counter()
         intermediate_tensors = None
         orig_model_execute_time = 0.0
         if not get_pp_group().is_first_rank:
@@ -472,6 +480,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     and self.observability_config.collect_model_execute_time):
                 orig_model_execute_time = intermediate_tensors.tensors.get(
                     "model_execute_time", torch.tensor(0)).item()
+        self.pLogger.log_recv_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
 
         start_time1 = time.perf_counter()
         output = self.model_runner.execute_model(

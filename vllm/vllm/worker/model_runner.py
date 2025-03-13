@@ -1831,10 +1831,13 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         if local_log:
             compute_logits_start.record()
+            start_time_compute_logits = time.perf_counter()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
         if local_log:
             compute_logits_end.record()
+            compute_logits_end.synchronize()
+            compute_logits_time = time.perf_counter() - start_time_compute_logits
 
         if not self.is_driver_worker:
             return []
@@ -1846,21 +1849,20 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         # Sample the next token.
         if local_log:
             sampling_start.record()
+            start_time_sampling = time.perf_counter()
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
         if local_log:
             sampling_end.record()
-            
-
+            sampling_end.synchronize()
+            sampling_time = time.perf_counter() - start_time_sampling
 
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
                 and output is not None) or local_log:
             model_forward_end.synchronize()
-            compute_logits_end.synchronize()
-            sampling_end.synchronize()
             #model_forward_time = model_forward_start.elapsed_time(
             #    model_forward_end)
             model_forward_time = time.perf_counter() - start_time
@@ -1875,9 +1877,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             output.model_forward_time = (orig_model_forward_time +
                                          model_forward_time)
             
-            compute_logits_time = compute_logits_start.elapsed_time(compute_logits_end)
+            #compute_logits_time = compute_logits_start.elapsed_time(compute_logits_end)
             self.pLogger.log_compute_logits_time(virtual_engine, compute_logits_time)
-            sampling_time = sampling_start.elapsed_time(sampling_end)
+            #sampling_time = sampling_start.elapsed_time(sampling_end)
             self.pLogger.log_sampling_time(virtual_engine, sampling_time)
             self.pLogger.log_forward_time(virtual_engine, model_forward_time)
             

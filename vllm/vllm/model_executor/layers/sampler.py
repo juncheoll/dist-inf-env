@@ -226,7 +226,7 @@ class SamplerOutput(
 pLogger = None
 def create_PLogger():
     global pLogger
-    if get_pp_group().is_last_rank():
+    if get_pp_group().is_last_rank:
         pLogger = PeriodicLogger()
 
 

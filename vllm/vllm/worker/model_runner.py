@@ -1391,7 +1391,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
             if model_input.attn_metadata is not None:
                 model_input.attn_metadata.enable_kv_scales_calculation = False
 
-            self.execute_model(model_input, kv_caches, intermediate_tensors)
+            self.execute_model(model_input, kv_caches, intermediate_tensors, is_dummy=True)
             torch.cuda.synchronize()
             if self.lora_config:
                 # Remove dummy loras.
@@ -1700,6 +1700,8 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         num_steps: int = 1,
         **kwargs,
     ) -> Optional[Union[List[SamplerOutput], IntermediateTensors]]:
+        is_dummy = kwargs.get("is_dummy", False)
+        local_log = log and not is_dummy
         if num_steps > 1:
             raise ValueError("num_steps > 1 is not supported in ModelRunner")
 
@@ -1761,7 +1763,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if previous_hidden_states is not None:
             model_kwargs["previous_hidden_states"] = previous_hidden_states
         if (self.observability_config is not None
-                and self.observability_config.collect_model_forward_time) or log:
+                and self.observability_config.collect_model_forward_time) or local_log:
             model_forward_start = torch.cuda.Event(enable_timing=True)
             model_forward_end = torch.cuda.Event(enable_timing=True)
             model_forward_start.record()
@@ -1786,7 +1788,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 )
 
         if (self.observability_config is not None
-                and self.observability_config.collect_model_forward_time) or log:
+                and self.observability_config.collect_model_forward_time) or local_log:
             model_forward_end.record()
 
         
@@ -1812,7 +1814,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                     and isinstance(hidden_or_intermediate_states,
                                    IntermediateTensors)
                     and ((self.observability_config is not None
-                    and self.observability_config.collect_model_forward_time) or log)):
+                    and self.observability_config.collect_model_forward_time) or local_log)):
                 model_forward_end.synchronize()
                 model_forward_time = model_forward_start.elapsed_time(
                     model_forward_end)
@@ -1825,11 +1827,11 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 self.pLogger.log_forward_time(virtual_engine, model_forward_time)
             return hidden_or_intermediate_states
 
-        if log:
+        if local_log:
             compute_logits_start.record()
         logits = self.model.compute_logits(hidden_or_intermediate_states,
                                            model_input.sampling_metadata)
-        if log:
+        if local_log:
             compute_logits_end.record()
 
         if not self.is_driver_worker:
@@ -1840,20 +1842,20 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             model_input.async_callback()
 
         # Sample the next token.
-        if log:
+        if local_log:
             sampling_start.record()
         output: SamplerOutput = self.model.sample(
             logits=logits,
             sampling_metadata=model_input.sampling_metadata,
         )
-        if log:
+        if local_log:
             sampling_end.record()
             
 
 
         if (self.observability_config is not None
                 and self.observability_config.collect_model_forward_time
-                and output is not None) or log:
+                and output is not None) or local_log:
             model_forward_end.synchronize()
             compute_logits_end.synchronize()
             sampling_end.synchronize()

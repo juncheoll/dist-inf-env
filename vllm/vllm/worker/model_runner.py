@@ -1766,12 +1766,13 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                 and self.observability_config.collect_model_forward_time) or local_log:
             model_forward_start = torch.cuda.Event(enable_timing=True)
             model_forward_end = torch.cuda.Event(enable_timing=True)
-            model_forward_start.record()
             compute_logits_start = torch.cuda.Event(enable_timing=True)
             compute_logits_end = torch.cuda.Event(enable_timing=True)
             sampling_start = torch.cuda.Event(enable_timing=True)
             sampling_end = torch.cuda.Event(enable_timing=True)
+            model_forward_start.record()
 
+        start_time = time.perf_counter()
         if not bypass_model_exec:
             with set_forward_context(model_input.attn_metadata,
                                      self.vllm_config, virtual_engine):
@@ -1816,8 +1817,9 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
                     and ((self.observability_config is not None
                     and self.observability_config.collect_model_forward_time) or local_log)):
                 model_forward_end.synchronize()
-                model_forward_time = model_forward_start.elapsed_time(
-                    model_forward_end)
+                #model_forward_time = model_forward_start.elapsed_time(
+                #    model_forward_end)
+                model_forward_time = time.perf_counter() - start_time
                 orig_model_forward_time = 0.0
                 if intermediate_tensors is not None:
                     orig_model_forward_time = intermediate_tensors.tensors.get(

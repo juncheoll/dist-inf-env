@@ -52,7 +52,7 @@ class PeriodicLogger:
 
         self.cpu_times = []
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_softmax_time(self, execute_time: float):
         self.softmax_times.append(execute_time)

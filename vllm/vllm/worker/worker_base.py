@@ -491,6 +491,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             num_steps=num_steps,
             **kwargs,
         )
+        torch.cuda.synchronize()
         self.pLogger.log_execute_model_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
 
         model_execute_time = time.perf_counter() - start_time

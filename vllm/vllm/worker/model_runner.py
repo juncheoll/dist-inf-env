@@ -75,7 +75,7 @@ torch._dynamo.config.cache_size_limit = 128
 torch._dynamo.config.accumulated_cache_size_limit = 128
 
 import threading
-log = False
+log = True
 class PeriodicLogger:
     def __init__(self, interval: float = 10, pipeline_parallel_size: int = 1):
         self.interval = interval

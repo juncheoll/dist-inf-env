@@ -63,19 +63,19 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = "\\\nprepare_worker_input\\\n" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(prepare_worker_input_times)/len(prepare_worker_input_times) if prepare_worker_input_times else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
+                    [f"virtual_engine {i} : {(sum(prepare_worker_input_times[10:])/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
                 )
                 virtual_engines += "\\\nprepare_model_input\\\n" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(prepare_model_input_times)/len(prepare_model_input_times) if prepare_model_input_times else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
+                    [f"virtual_engine {i} : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
                 )
                 virtual_engines += "\\\nexecute_worker\\\n" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_worker_times)/len(execute_worker_times) if execute_worker_times else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
+                    [f"virtual_engine {i} : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
                 )
                 virtual_engines += "\\\nrecv\\\n" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(recv_times[1:])/len(recv_times[1:]) if recv_times[1:] else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
+                    [f"virtual_engine {i} : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
                 )
                 virtual_engines += "\\\nexecute_model\\\n" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_model_times[1:])/len(execute_model_times[1:]) if execute_model_times[1:] else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
+                    [f"virtual_engine {i} : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
                 )
                 logger.info(f"worker in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 

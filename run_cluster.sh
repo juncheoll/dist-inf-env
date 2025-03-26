@@ -71,7 +71,7 @@ docker run  -d \
     --gpus all \
     -v "${PATH_TO_HF_HOME}:/root/.cache/huggingface" \
     -v ./:/dist-inf-env/ \
-    -v ../models:/models/ \
+    -v ./../models:/models/ \
     "${ADDITIONAL_ARGS[@]}" \
     "${DOCKER_IMAGE}" \
     bash -c "${RAY_START_CMD} & tail -f /dev/null"

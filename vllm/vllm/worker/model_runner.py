@@ -86,7 +86,7 @@ class PeriodicLogger:
         self.compute_logits_times_list = [[] for i in range(pipeline_parallel_size)]
         self.sampling_times_list = [[] for i in range(pipeline_parallel_size)]
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_forward_time(self, virtual_engine: int, forward_time: float):
         self.forward_times_list[virtual_engine].append(forward_time)

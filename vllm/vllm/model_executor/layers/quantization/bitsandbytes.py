@@ -252,10 +252,8 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
               bias: Optional[torch.Tensor] = None) -> torch.Tensor:
 
         if self.quant_config.load_in_8bit:
-            logger.info("apply_8bit_weight")
             return self._apply_8bit_weight(layer, x, bias)
         else:
-            logger.info("apply_4bit_weight")
             return self._apply_4bit_weight(layer, x, bias)
 
     def _apply_8bit_weight(

@@ -10,6 +10,10 @@ from vllm.model_executor.layers.linear import (LinearBase, LinearMethodBase,
 from vllm.model_executor.layers.quantization.base_config import (
     QuantizationConfig)
 
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
+
 
 class BitsAndBytesConfig(QuantizationConfig):
     """Config class for BitsAndBytes Quantization.
@@ -42,6 +46,19 @@ class BitsAndBytesConfig(QuantizationConfig):
         self.llm_int8_skip_modules = llm_int8_skip_modules or []
         self.llm_int8_threshold = llm_int8_threshold
 
+        logger.info(f"BitsAndBytesConfig info :"
+                    f"load_in_8bit : {load_in_8bit} "
+                    f"load_in_4bit : {load_in_4bit} "
+                    f"bnb_4bit_compute_dtype : {bnb_4bit_compute_dtype} "
+                    f"bnb_4bit_quant_storage : {bnb_4bit_quant_storage} "
+                    f"bnb_4bit_quant_type : {bnb_4bit_quant_type} "
+                    f"bnb_4bit_use_double_quant : {bnb_4bit_use_double_quant} "
+                    f"llm_int8_enable_fp32_cpu_offload : {llm_int8_enable_fp32_cpu_offload}"
+                    f"llm_int8_has_fp16_weight : {llm_int8_has_fp16_weight} "
+                    f"llm_int8_skip_modules : {llm_int8_skip_modules} "
+                    f"llm_int8_threshold : {llm_int8_threshold}")
+
+        
         if self.bnb_4bit_quant_storage not in ["uint8"]:
             raise ValueError("Unsupported bnb_4bit_quant_storage: "
                              f"{self.bnb_4bit_quant_storage}")
@@ -172,6 +189,8 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
                        **extra_weight_attrs):
         from bitsandbytes.nn import Int8Params
 
+        logger.info(f"{layer}")
+
         def calculate_quant_ratio(dtype):
             if dtype.is_floating_point:
                 return torch.finfo(dtype).bits // torch.iinfo(torch.uint8).bits
@@ -218,8 +237,10 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
             return qweight
 
         if self.quant_config.load_in_8bit:
+            logger.info("create_qweights_for_8bit")
             qweight = create_qweight_for_8bit()
         else:
+            logger.info("create_qweights_for_4bit")
             qweight = create_qweight_for_4bit()
         # Enable parameters to have the same name as in the BNB
         # checkpoint format.
@@ -232,8 +253,10 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
               bias: Optional[torch.Tensor] = None) -> torch.Tensor:
 
         if self.quant_config.load_in_8bit:
+            logger.info("apply_8bit_weight")
             return self._apply_8bit_weight(layer, x, bias)
         else:
+            logger.info("apply_4bit_weight")
             return self._apply_4bit_weight(layer, x, bias)
 
     def _apply_8bit_weight(

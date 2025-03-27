@@ -189,7 +189,6 @@ class BitsAndBytesLinearMethod(LinearMethodBase):
                        **extra_weight_attrs):
         from bitsandbytes.nn import Int8Params
 
-        logger.info(f"{layer}")
 
         def calculate_quant_ratio(dtype):
             if dtype.is_floating_point:

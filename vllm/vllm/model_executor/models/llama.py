@@ -54,6 +54,76 @@ from .utils import (AutoWeightsLoader, PPMissingLayer, extract_layer_index,
                     make_empty_intermediate_tensors_factory, make_layers,
                     maybe_prefix)
 
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
+
+import threading
+import time
+class PeriodicLogger:
+    def __init__(self, interval: float = 10):
+        self.interval = interval
+        self._stop_event = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+
+        self.gate_up_proj_times = []
+        self.act_fn_times = []
+        self.down_proj_times = []
+
+        self.qkv_proj_times = []
+        self.rotary_emb_times = []
+        self.attention_times = []
+        self.o_proj_times = []
+
+        self._thread.start()
+
+    def log_gate_up_proj_time(self, execute_time: float):
+        self.gate_up_proj_times.append(execute_time)
+    
+    def log_act_fn_time(self, execute_time: float):
+        self.act_fn_times.append(execute_time)
+
+    def log_down_proj_time(self, execute_time: float):
+        self.down_proj_times.append(execute_time)
+    
+    def log_qkv_proj_time(self, execute_time: float):
+        self.qkv_proj_times.append(execute_time)
+    
+    def log_rotary_emb_time(self, execute_time: float):
+        self.rotary_emb_times.append(execute_time)
+
+    def log_attention_time(self, execute_time: float):
+        self.attention_times.append(execute_time)
+
+    def log_o_proj_time(self, execute_time: float):
+        self.o_proj_times.append(execute_time)
+
+    def _run(self):
+        while not self._stop_event.is_set():
+            start_time = time.time()
+
+            try:
+                virtual_engines = f"gate_up_proj_time : {(sum(self.gate_up_proj_times[10:])/len(self.gate_up_proj_times[10:]) if self.gate_up_proj_times[10:] else 1):.5f} / {len(self.gate_up_proj_times)}\\\n"
+                virtual_engines += f"act_fn_time : {(sum(self.act_fn_times[10:])/len(self.act_fn_times[10:]) if self.act_fn_times[10:] else 1):.5f} / {len(self.act_fn_times)}\\\n"
+                virtual_engines += f"down_proj_time : {(sum(self.down_proj_times[10:])/len(self.down_proj_times[10:]) if self.down_proj_times[10:] else 1):.5f} / {len(self.down_proj_times)}\\\n"
+
+                virtual_engines += f"qkv_proj_time : {(sum(self.qkv_proj_times[10:])/len(self.qkv_proj_times[10:]) if self.qkv_proj_times[10:] else 1):.5f} / {len(self.qkv_proj_times)}\\\n"
+                virtual_engines += f"rotary_emb_time : {(sum(self.rotary_emb_times[10:])/len(self.rotary_emb_times[10:]) if self.rotary_emb_times[10:] else 1):.5f} / {len(self.rotary_emb_times)}\\\n"
+                virtual_engines += f"attention_time : {(sum(self.attention_times[10:])/len(self.attention_times[10:]) if self.attention_times[10:] else 1):.5f} / {len(self.attention_times)}\\\n"
+                virtual_engines += f"o_proj_time : {(sum(self.o_proj_times[10:])/len(self.o_proj_times[10:]) if self.o_proj_times[10:] else 1):.5f} / {len(self.o_proj_times)}\\\n"
+
+
+                logger.info(f"runner in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+            except Exception as e:
+                logger.info(f'**** error! : {e}')
+
+            elapsed_time = time.time() - start_time
+            time_to_sleep = max(0, self.interval - elapsed_time)
+            time.sleep(time_to_sleep)
+
+pLogger = PeriodicLogger()
 
 class LlamaMLP(nn.Module):
 
@@ -87,9 +157,31 @@ class LlamaMLP(nn.Module):
         self.act_fn = SiluAndMul()
 
     def forward(self, x):
+        start_up = torch.cuda.Event(enable_timing=True)
+        end_up = torch.cuda.Event(enable_timing=True)
+        start_act = torch.cuda.Event(enable_timing=True)
+        end_act = torch.cuda.Event(enable_timing=True)
+        start_down = torch.cuda.Event(enable_timing=True)
+        end_down = torch.cuda.Event(enable_timing=True)
+
+        start_up.record()
         x, _ = self.gate_up_proj(x)
+        end_up.record()
+
+        start_act.record()
         x = self.act_fn(x)
+        end_act.record()
+
+        start_down.record()
         x, _ = self.down_proj(x)
+        end_down.record()
+
+        torch.cuda.synchronize()
+
+        pLogger.log_gate_up_proj_time(start_up.elapsed_time(end_up))
+        pLogger.log_act_fn_time(start_act.elapsed_time(end_act))
+        pLogger.log_down_proj_time(start_down.elapsed_time(end_down))
+
         return x
 
 
@@ -204,11 +296,41 @@ class LlamaAttention(nn.Module):
         kv_cache: torch.Tensor,
         attn_metadata: AttentionMetadata,
     ) -> torch.Tensor:
+        
+        start_qkv = torch.cuda.Event(enable_timing=True)
+        end_qkv = torch.cuda.Event(enable_timing=True)
+        start_rotary = torch.cuda.Event(enable_timing=True)
+        end_rotary = torch.cuda.Event(enable_timing=True)
+        start_attn = torch.cuda.Event(enable_timing=True)
+        end_attn = torch.cuda.Event(enable_timing=True)
+        start_o_proj = torch.cuda.Event(enable_timing=True)
+        end_o_proj = torch.cuda.Event(enable_timing=True)
+
+        start_qkv.record()
         qkv, _ = self.qkv_proj(hidden_states)
+        end_qkv.record()
+
+        start_rotary.record()
         q, k, v = qkv.split([self.q_size, self.kv_size, self.kv_size], dim=-1)
         q, k = self.rotary_emb(positions, q, k)
+        end_rotary.record()
+
+        start_attn.record()
         attn_output = self.attn(q, k, v, kv_cache, attn_metadata)
+        end_attn.record()
+
+        start_o_proj.record()
         output, _ = self.o_proj(attn_output)
+        end_o_proj.record()
+
+        torch.cuda.synchronize()
+
+
+        pLogger.log_qkv_proj_time(start_qkv.elapsed_time(end_qkv))
+        pLogger.log_rotary_emb_time(start_rotary.elapsed_time(end_rotary))
+        pLogger.log_attention_time(start_attn.elapsed_time(end_attn))
+        pLogger.log_o_proj_time(start_o_proj.elapsed_time(end_o_proj))
+
         return output
 
 

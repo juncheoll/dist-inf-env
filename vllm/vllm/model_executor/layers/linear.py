@@ -385,13 +385,7 @@ class ColumnParallelLinear(LinearBase):
 
         # Matrix multiply.
         assert self.quant_method is not None
-        start_event = torch.cuda.Event()
-        end_event = torch.cuda.Event()
-        start_event.record()
         output_parallel = self.quant_method.apply(self, input_, bias)
-        end_event.record()
-        torch.cuda.synchronize()
-        print(f"{start_event.elapsed_time(end_event):.5f}:")
         if self.gather_output:
             # All-gather across the partitions.
             output = tensor_model_parallel_all_gather(output_parallel)

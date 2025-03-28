@@ -66,17 +66,21 @@ class PeriodicLogger:
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
-
+        self.input_ln_times = []
         self.gate_up_proj_times = []
         self.act_fn_times = []
         self.down_proj_times = []
 
+        self.post_ln_times = []
         self.qkv_proj_times = []
         self.rotary_emb_times = []
         self.attention_times = []
         self.o_proj_times = []
 
         self._thread.start()
+
+    def log_post_ln_time(self, execute_time: float):
+        self.post_ln_times.append(execute_time)
 
     def log_gate_up_proj_time(self, execute_time: float):
         self.gate_up_proj_times.append(execute_time)
@@ -87,6 +91,9 @@ class PeriodicLogger:
     def log_down_proj_time(self, execute_time: float):
         self.down_proj_times.append(execute_time)
     
+    def log_input_ln_time(self, execute_time: float):
+        self.input_ln_times.append(execute_time)
+
     def log_qkv_proj_time(self, execute_time: float):
         self.qkv_proj_times.append(execute_time)
     
@@ -104,10 +111,12 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
+                virtual_engines = f"post_ln_time : {(sum(self.post_ln_times[10:])/len(self.post_ln_times[10:]) if self.post_ln_times[10:] else 1):.5f} / {len(self.post_ln_times)}\\\n"
                 virtual_engines = f"gate_up_proj_time : {(sum(self.gate_up_proj_times[10:])/len(self.gate_up_proj_times[10:]) if self.gate_up_proj_times[10:] else 1):.5f} / {len(self.gate_up_proj_times)}\\\n"
                 virtual_engines += f"act_fn_time : {(sum(self.act_fn_times[10:])/len(self.act_fn_times[10:]) if self.act_fn_times[10:] else 1):.5f} / {len(self.act_fn_times)}\\\n"
                 virtual_engines += f"down_proj_time : {(sum(self.down_proj_times[10:])/len(self.down_proj_times[10:]) if self.down_proj_times[10:] else 1):.5f} / {len(self.down_proj_times)}\\\n"
 
+                virtual_engines += f"input_ln_time : {(sum(self.input_ln_times[10:])/len(self.input_ln_times[10:]) if self.input_ln_times[10:] else 1):.5f} / {len(self.input_ln_times)}\\\n"
                 virtual_engines += f"qkv_proj_time : {(sum(self.qkv_proj_times[10:])/len(self.qkv_proj_times[10:]) if self.qkv_proj_times[10:] else 1):.5f} / {len(self.qkv_proj_times)}\\\n"
                 virtual_engines += f"rotary_emb_time : {(sum(self.rotary_emb_times[10:])/len(self.rotary_emb_times[10:]) if self.rotary_emb_times[10:] else 1):.5f} / {len(self.rotary_emb_times)}\\\n"
                 virtual_engines += f"attention_time : {(sum(self.attention_times[10:])/len(self.attention_times[10:]) if self.attention_times[10:] else 1):.5f} / {len(self.attention_times)}\\\n"
@@ -399,21 +408,35 @@ class LlamaDecoderLayer(nn.Module):
         residual: Optional[torch.Tensor],
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         # Self Attention
+        start_input_layernorm = torch.cuda.Event(enable_timing=True)
+        end_input_layernorm = torch.cuda.Event(enable_timing=True)
+        start_post_layernorm = torch.cuda.Event(enable_timing=True)
+        end_post_layernorm = torch.cuda.Event(enable_timing=True)
+        
+
         if residual is None:
+            start_input_layernorm.record()
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
+            end_input_layernorm.record()
         else:
+            start_input_layernorm.record()
             hidden_states, residual = self.input_layernorm(
                 hidden_states, residual)
+            end_input_layernorm.record()
         hidden_states = self.self_attn(positions=positions,
                                        hidden_states=hidden_states,
                                        kv_cache=kv_cache,
                                        attn_metadata=attn_metadata)
 
         # Fully Connected
+        start_post_layernorm.record()
         hidden_states, residual = self.post_attention_layernorm(
             hidden_states, residual)
+        end_post_layernorm.record()
         hidden_states = self.mlp(hidden_states)
+
+
         return hidden_states, residual
 
 

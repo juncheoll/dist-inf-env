@@ -243,7 +243,6 @@ class ReplicatedLinear(LinearBase):
 
     def forward(self,
                 x: torch.Tensor) -> tuple[torch.Tensor, Optional[Parameter]]:
-        logger.info("ReplicatedLinear forward")
         bias = self.bias if not self.skip_bias_add else None
         assert self.quant_method is not None
         output = self.quant_method.apply(self, x, bias)
@@ -387,7 +386,6 @@ class ColumnParallelLinear(LinearBase):
         # Matrix multiply.
         assert self.quant_method is not None
         output_parallel = self.quant_method.apply(self, input_, bias)
-        logger.info("ColumnParallelLinear forward")
         if self.gather_output:
             # All-gather across the partitions.
             output = tensor_model_parallel_all_gather(output_parallel)
@@ -1148,7 +1146,6 @@ class RowParallelLinear(LinearBase):
         # Only fuse bias add into GEMM for rank 0 (this ensures that
         # bias will not get added more than once in TP>1 case)
         bias_ = None if (self.tp_rank > 0 or self.skip_bias_add) else self.bias
-        logger.info("RowParallelLinear forward")
         output_parallel = self.quant_method.apply(self,
                                                   input_parallel,
                                                   bias=bias_)

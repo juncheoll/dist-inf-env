@@ -112,7 +112,7 @@ class PeriodicLogger:
 
             try:
                 virtual_engines = f"post_ln_time : {(sum(self.post_ln_times[10:])/len(self.post_ln_times[10:]) if self.post_ln_times[10:] else 1):.5f} / {len(self.post_ln_times)}\\\n"
-                virtual_engines = f"gate_up_proj_time : {(sum(self.gate_up_proj_times[10:])/len(self.gate_up_proj_times[10:]) if self.gate_up_proj_times[10:] else 1):.5f} / {len(self.gate_up_proj_times)}\\\n"
+                virtual_engines += f"gate_up_proj_time : {(sum(self.gate_up_proj_times[10:])/len(self.gate_up_proj_times[10:]) if self.gate_up_proj_times[10:] else 1):.5f} / {len(self.gate_up_proj_times)}\\\n"
                 virtual_engines += f"act_fn_time : {(sum(self.act_fn_times[10:])/len(self.act_fn_times[10:]) if self.act_fn_times[10:] else 1):.5f} / {len(self.act_fn_times)}\\\n"
                 virtual_engines += f"down_proj_time : {(sum(self.down_proj_times[10:])/len(self.down_proj_times[10:]) if self.down_proj_times[10:] else 1):.5f} / {len(self.down_proj_times)}\\\n"
 
@@ -436,6 +436,8 @@ class LlamaDecoderLayer(nn.Module):
         end_post_layernorm.record()
         hidden_states = self.mlp(hidden_states)
 
+        pLogger.log_input_ln_time(start_input_layernorm.elapsed_time(end_input_layernorm))
+        pLogger.log_post_ln_time(start_post_layernorm.elapsed_time(end_post_layernorm))
 
         return hidden_states, residual
 

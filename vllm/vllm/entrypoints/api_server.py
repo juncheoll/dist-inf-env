@@ -57,6 +57,7 @@ async def _generate(request_dict: dict, raw_request: Request) -> Response:
     stream = request_dict.pop("stream", False)
     request_dict["max_tokens"] = 128
     request_dict["min_tokens"] = 128
+    print(request_dict)
     sampling_params = SamplingParams(**request_dict)
     request_id = random_uuid()
 

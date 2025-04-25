@@ -183,8 +183,8 @@ class SamplingParams(
     stop_token_ids: Optional[List[int]] = None
     bad_words: Optional[List[str]] = None
     ignore_eos: bool = False
-    max_tokens: Optional[int] = 16
-    min_tokens: int = 0
+    max_tokens: Optional[int] = 128
+    min_tokens: int = 128
     logprobs: Optional[int] = None
     prompt_logprobs: Optional[int] = None
     # NOTE: This parameter is only exposed at the engine level for now.
@@ -227,8 +227,8 @@ class SamplingParams(
         bad_words: Optional[List[str]] = None,
         include_stop_str_in_output: bool = False,
         ignore_eos: bool = False,
-        max_tokens: Optional[int] = 16,
-        min_tokens: int = 0,
+        max_tokens: Optional[int] = 128,
+        min_tokens: int = 128,
         logprobs: Optional[int] = None,
         prompt_logprobs: Optional[int] = None,
         detokenize: bool = True,

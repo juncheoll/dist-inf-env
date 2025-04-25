@@ -19,7 +19,6 @@ def sync_request(idx: int):
             messages=[
                 {"role": "user", "content": "If you save $11,000 with an annual interest rate of 2.5% for a 5-year term, what is the final return?"},
             ],
-            max_tokens=126
         )
         response_time = time.time() - start_time
         print(f"Request {idx}: {completion.choices[0].message} ({response_time:.2f} s)")

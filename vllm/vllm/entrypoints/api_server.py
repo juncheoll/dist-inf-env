@@ -55,7 +55,9 @@ async def generate(request: Request) -> Response:
 async def _generate(request_dict: dict, raw_request: Request) -> Response:
     prompt = request_dict.pop("prompt")
     stream = request_dict.pop("stream", False)
-    sampling_params = SamplingParams(min_tokens=128, max_tokens=128, **request_dict)
+    request_dict["max_tokens"] = 128
+    request_dict["min_tokens"] = 128
+    sampling_params = SamplingParams(**request_dict)
     request_id = random_uuid()
 
     assert engine is not None

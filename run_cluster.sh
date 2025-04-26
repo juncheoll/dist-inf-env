@@ -72,7 +72,7 @@ docker run  -d \
     -v "${PATH_TO_HF_HOME}:/root/.cache/huggingface" \
     -v ./:/dist-inf-env/ \
     -v ./../models:/models/ \
-    -e VLLM_PP_LAYER_PARTITION="9,10,10,10,9" \
+    -e VLLM_PP_LAYER_PARTITION="8,11,11,10,8" \
     "${ADDITIONAL_ARGS[@]}" \
     "${DOCKER_IMAGE}" \
     bash -c "${RAY_START_CMD} & tail -f /dev/null"

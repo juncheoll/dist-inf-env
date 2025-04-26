@@ -77,7 +77,7 @@ class PeriodicLogger:
         self.attention_times = []
         self.o_proj_times = []
 
-        self._thread.start()
+        #self._thread.start()
 
     def log_post_ln_time(self, execute_time: float):
         self.post_ln_times.append(execute_time)

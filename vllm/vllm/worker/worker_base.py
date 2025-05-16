@@ -108,11 +108,11 @@ class PeriodicLogger:
 
                 logger.info(f"worker in rank = {get_pp_group().rank}... \n"
                             f"perpare_worker_input : {(sum(prepare_worker_input_times[10:])/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}\n"
-                            f"perpare_worker_input : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}\n"
-                            f"perpare_worker_input : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}\n"
-                            f"perpare_worker_input : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}\n"
-                            f"perpare_worker_input : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}\n"
-                            f"perpare_worker_input : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}\n"
+                            f"prepare_model_input_times : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}\n"
+                            f"execute_worker_times : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}\n"
+                            f"recv_times : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}\n"
+                            f"execute_model_times : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}\n"
+                            f"send_times : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}\n"
                             )
 
             except Exception as e:

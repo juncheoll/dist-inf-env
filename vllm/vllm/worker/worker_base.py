@@ -543,7 +543,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             start_time1 = time.perf_counter()
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
-            self.pLogger.log_send_time(worker_input.virtual_engine, time.perf_counter() - start_time)
+            self.pLogger.log_send_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
             return [None]
         if (self.observability_config is not None
                 and self.observability_config.collect_model_execute_time

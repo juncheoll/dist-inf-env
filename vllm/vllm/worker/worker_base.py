@@ -34,32 +34,32 @@ class PeriodicLogger:
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._run, daemon=True)
 
-        self.prepare_model_input_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.prepare_worker_input_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.execute_model_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.execute_worker_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.recv_times_list = [[] for i in range(pipeline_parallel_size)]
-        self.send_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.prepare_model_input_times_list = [[] for i in range(1)]
+        self.prepare_worker_input_times_list = [[] for i in range(1)]
+        self.execute_model_times_list = [[] for i in range(1)]
+        self.execute_worker_times_list = [[] for i in range(1)]
+        self.recv_times_list = [[] for i in range(1)]
+        self.send_times_list = [[] for i in range(1)]
 
         self._thread.start()
 
     def log_execute_model_time(self, virtual_engine: int, execute_time: float):
-        self.execute_model_times_list[virtual_engine].append(execute_time)
+        self.execute_model_times_list[0].append(execute_time)
 
     def log_execute_worker_time(self, virtual_engine: int, execute_time: float):
-        self.execute_worker_times_list[virtual_engine].append(execute_time)
+        self.execute_worker_times_list[0].append(execute_time)
 
     def log_prepare_model_input_time(self, virtual_engine: int, execute_time: float):
-        self.prepare_model_input_times_list[virtual_engine].append(execute_time)
+        self.prepare_model_input_times_list[0].append(execute_time)
 
     def log_prepare_worker_input_time(self, virtual_engine: int, execute_time: float):
-        self.prepare_worker_input_times_list[virtual_engine].append(execute_time)
+        self.prepare_worker_input_times_list[0].append(execute_time)
 
     def log_recv_time(self, virtual_engine: int, execute_time: float):
-        self.recv_times_list[virtual_engine].append(execute_time)
+        self.recv_times_list[0].append(execute_time)
 
     def log_send_time(self, virtual_engine: int, execute_time: float):
-        self.send_times_list[virtual_engine].append(execute_time)
+        self.send_times_list[0].append(execute_time)
 
     # def _run(self):
     #     while not self._stop_event.is_set():
@@ -116,7 +116,22 @@ class PeriodicLogger:
                 virtual_engines += "\\\nsend_model\\" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}" for i, send_times in enumerate(self.send_times_list)]
                 )
-                logger.info(f"worker in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+                prepare_worker_input_times = self.prepare_worker_input_times_list[0]
+                prepare_model_input_times = self.prepare_model_input_times_list[0]
+                execute_worker_times = self.execute_worker_times_list[0]
+                recv_times = self.recv_times_list[0]
+                execute_model_times = self.execute_model_times_list[0]
+                send_times = self.send_times_list[0]
+
+
+                logger.info(f"worker in rank = {get_pp_group().rank}... \n"
+                            f"perpare_worker_input : {sum(prepare_worker_input_times[10:]/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}\n"
+                            f"perpare_worker_input : {sum(prepare_model_input_times[10:]/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}\n"
+                            f"perpare_worker_input : {sum(execute_worker_times[10:]/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}\n"
+                            f"perpare_worker_input : {sum(recv_times[10:]/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}\n"
+                            f"perpare_worker_input : {sum(execute_model_times[10:]/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}\n"
+                            f"perpare_worker_input : {sum(send_times[10:]/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}\n"
+                            )
 
             except Exception as e:
                 logger.info(f'**** error! : {e}')

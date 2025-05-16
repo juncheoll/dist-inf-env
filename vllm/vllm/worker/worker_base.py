@@ -39,8 +39,9 @@ class PeriodicLogger:
         self.execute_model_times_list = [[] for i in range(pipeline_parallel_size)]
         self.execute_worker_times_list = [[] for i in range(pipeline_parallel_size)]
         self.recv_times_list = [[] for i in range(pipeline_parallel_size)]
+        self.send_times_list = [[] for i in range(pipeline_parallel_size)]
 
-        #self._thread.start()
+        self._thread.start()
 
     def log_execute_model_time(self, virtual_engine: int, execute_time: float):
         self.execute_model_times_list[virtual_engine].append(execute_time)
@@ -57,25 +58,63 @@ class PeriodicLogger:
     def log_recv_time(self, virtual_engine: int, execute_time: float):
         self.recv_times_list[virtual_engine].append(execute_time)
 
+    def log_send_time(self, virtual_engine: int, execute_time: float):
+        self.send_times_list[virtual_engine].append(execute_time)
+
+    # def _run(self):
+    #     while not self._stop_event.is_set():
+    #         start_time = time.time()
+
+    #         try:
+    #             virtual_engines = "\\\nprepare_worker_input\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(prepare_worker_input_times[10:])/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
+    #             )
+    #             virtual_engines += "\\\nprepare_model_input\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
+    #             )
+    #             virtual_engines += "\\\nexecute_worker\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
+    #             )
+    #             virtual_engines += "\\\nrecv\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
+    #             )
+    #             virtual_engines += "\\\nexecute_model\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
+    #             )
+    #             virtual_engines += "\\\nsend_model\\\n" + " \\\n".join(
+    #                 [f"virtual_engine {i} : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}" for i, send_times in enumerate(self.send_times_list)]
+    #             )
+    #             logger.info(f"worker in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
+
+    #         except Exception as e:
+    #             logger.info(f'**** error! : {e}')
+
+    #         elapsed_time = time.time() - start_time
+    #         time_to_sleep = max(0, self.interval - elapsed_time)
+    #         time.sleep(time_to_sleep)
+
     def _run(self):
         while not self._stop_event.is_set():
             start_time = time.time()
 
             try:
-                virtual_engines = "\\\nprepare_worker_input\\\n" + " \\\n".join(
+                virtual_engines = "\\\nprepare_worker_input\\" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(prepare_worker_input_times[10:])/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
                 )
-                virtual_engines += "\\\nprepare_model_input\\\n" + " \\\n".join(
+                virtual_engines += "\\\nprepare_model_input\\" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
                 )
-                virtual_engines += "\\\nexecute_worker\\\n" + " \\\n".join(
+                virtual_engines += "\\\nexecute_worker\\" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
                 )
-                virtual_engines += "\\\nrecv\\\n" + " \\\n".join(
+                virtual_engines += "\\\nrecv\\\n" + " \\".join(
                     [f"virtual_engine {i} : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
                 )
-                virtual_engines += "\\\nexecute_model\\\n" + " \\\n".join(
+                virtual_engines += "\\\nexecute_model\\" + " \\\n".join(
                     [f"virtual_engine {i} : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
+                )
+                virtual_engines += "\\\nsend_model\\" + " \\\n".join(
+                    [f"virtual_engine {i} : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}" for i, send_times in enumerate(self.send_times_list)]
                 )
                 logger.info(f"worker in rank = {get_pp_group().rank}... \\\n{virtual_engines}")
 
@@ -456,6 +495,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
             return None
 
         model_input, worker_input, kwargs = inputs
+        torch.cuda.synchronize()
         self.pLogger.log_prepare_worker_input_time(worker_input.virtual_engine, time.perf_counter() - start_time)
         num_steps = worker_input.num_steps
         if (execute_model_req is not None and execute_model_req.spec_step_idx):
@@ -463,6 +503,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
 
         start_time1 = time.perf_counter()
         self.execute_worker(worker_input)
+        torch.cuda.synchronize()
         self.pLogger.log_execute_worker_time(worker_input.virtual_engine, time.perf_counter() - start_time1)
 
         # If there is no input, we don't need to execute the model.
@@ -502,8 +543,10 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                     and self.observability_config.collect_model_execute_time):
                 output.tensors["model_execute_time"] = torch.tensor(
                     model_execute_time + orig_model_execute_time)
+            start_time1 = time.perf_counter()
             get_pp_group().send_tensor_dict(output.tensors,
                                             all_gather_group=get_tp_group())
+            self.pLogger.log_send_time(worker_input.virtual_engine, time.perf_counter() - start_time)
             return [None]
         if (self.observability_config is not None
                 and self.observability_config.collect_model_execute_time

@@ -98,24 +98,6 @@ class PeriodicLogger:
             start_time = time.time()
 
             try:
-                virtual_engines = "\\\nprepare_worker_input\\" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(prepare_worker_input_times[10:])/len(prepare_worker_input_times[10:]) if prepare_worker_input_times[10:] else 1):.5f} / {len(prepare_worker_input_times)}" for i, prepare_worker_input_times in enumerate(self.prepare_worker_input_times_list)]
-                )
-                virtual_engines += "\\\nprepare_model_input\\" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(prepare_model_input_times[10:])/len(prepare_model_input_times[10:]) if prepare_model_input_times[10:] else 1):.5f} / {len(prepare_model_input_times)}" for i, prepare_model_input_times in enumerate(self.prepare_model_input_times_list)]
-                )
-                virtual_engines += "\\\nexecute_worker\\" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_worker_times[10:])/len(execute_worker_times[10:]) if execute_worker_times[10:] else 1):.5f} / {len(execute_worker_times)}" for i, execute_worker_times in enumerate(self.execute_worker_times_list)]
-                )
-                virtual_engines += "\\\nrecv\\\n" + " \\".join(
-                    [f"virtual_engine {i} : {(sum(recv_times[10:])/len(recv_times[10:]) if recv_times[10:] else 1):.5f} / {len(recv_times)}" for i, recv_times in enumerate(self.recv_times_list)]
-                )
-                virtual_engines += "\\\nexecute_model\\" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(execute_model_times[10:])/len(execute_model_times[10:]) if execute_model_times[10:] else 1):.5f} / {len(execute_model_times)}" for i, execute_model_times in enumerate(self.execute_model_times_list)]
-                )
-                virtual_engines += "\\\nsend_model\\" + " \\\n".join(
-                    [f"virtual_engine {i} : {(sum(send_times[10:])/len(send_times[10:]) if send_times[10:] else 1):.5f} / {len(send_times)}" for i, send_times in enumerate(self.send_times_list)]
-                )
                 prepare_worker_input_times = self.prepare_worker_input_times_list[0]
                 prepare_model_input_times = self.prepare_model_input_times_list[0]
                 execute_worker_times = self.execute_worker_times_list[0]
@@ -599,7 +581,6 @@ class LocalOrDistributedWorkerBase(WorkerBase):
 
         start_time = time.perf_counter()
         self.execute_worker(worker_input)
-        torch.cuda.synchronize()
         self.pLogger.log_execute_worker_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
         # If there is no input, we don't need to execute the model.
@@ -617,6 +598,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
                 **kwargs,
             )
         finally:
+            torch.cuda.synchronize()
             self.pLogger.log_execute_model_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
 

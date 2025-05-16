@@ -599,6 +599,7 @@ class LocalOrDistributedWorkerBase(WorkerBase):
 
         start_time = time.perf_counter()
         self.execute_worker(worker_input)
+        torch.cuda.synchronize()
         self.pLogger.log_execute_worker_time(worker_input.virtual_engine, time.perf_counter() - start_time)
 
         # If there is no input, we don't need to execute the model.
